@@ -5,7 +5,7 @@
         android:allowBackup="true"
         android:label="QueueWatch"
         android:supportsRtl="true"
-        android:theme="@style/Theme.QueueWatch">
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
         <activity
             android:name=".MainActivity"
