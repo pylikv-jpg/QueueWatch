@@ -18,7 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +46,12 @@ fun QueueWatchApp() {
         mutableStateOf("")
     }
 
+    var checkpointSelected by rememberSaveable {
+        mutableStateOf(false)
+    }
+
     MaterialTheme {
+
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
@@ -82,7 +87,7 @@ fun QueueWatchApp() {
                     }
                 }
 
-            } else {
+            } else if (!checkpointSelected) {
 
                 Column(
                     modifier = Modifier
@@ -127,12 +132,46 @@ fun QueueWatchApp() {
 
                     Button(
                         onClick = {
-                            // Следующим этапом здесь подключим выбор пункта пропуска.
+                            if (carNumber.isNotBlank()) {
+                                checkpointSelected = true
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Продолжить")
                     }
+                }
+
+            } else {
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+
+                    Text(
+                        text = "Выбор пункта пропуска",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(24.dp)
+                    )
+
+                    Text(
+                        text = "Автомобиль: $carNumber"
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(24.dp)
+                    )
+
+                    Text(
+                        text = "Здесь будет выбор пункта пропуска."
+                    )
                 }
             }
         }
