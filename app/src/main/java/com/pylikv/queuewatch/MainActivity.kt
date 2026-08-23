@@ -50,6 +50,10 @@ fun QueueWatchApp() {
         mutableStateOf(false)
     }
 
+    var selectedCheckpoint by rememberSaveable {
+        mutableStateOf("")
+    }
+
     MaterialTheme {
 
         Surface(
@@ -130,15 +134,92 @@ fun QueueWatchApp() {
                         modifier = Modifier.height(24.dp)
                     )
 
+                    Text(
+                        text = "Выберите пункт пропуска"
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(12.dp)
+                    )
+
                     Button(
                         onClick = {
-                            if (carNumber.isNotBlank()) {
-                                checkpointSelected = true
-                            }
+                            selectedCheckpoint = "Брузги"
+                            checkpointSelected = true
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Продолжить")
+                        Text("Брузги")
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            selectedCheckpoint = "Берестовица"
+                            checkpointSelected = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Берестовица")
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            selectedCheckpoint = "Козловичи"
+                            checkpointSelected = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Козловичи")
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            selectedCheckpoint = "Каменный Лог"
+                            checkpointSelected = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Каменный Лог")
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            selectedCheckpoint = "Бенякони"
+                            checkpointSelected = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Бенякони")
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            selectedCheckpoint = "Привалка"
+                            checkpointSelected = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Привалка")
                     }
                 }
 
@@ -153,7 +234,7 @@ fun QueueWatchApp() {
                 ) {
 
                     Text(
-                        text = "Выбор пункта пропуска",
+                        text = "Отслеживание",
                         style = MaterialTheme.typography.headlineMedium
                     )
 
@@ -166,11 +247,19 @@ fun QueueWatchApp() {
                     )
 
                     Spacer(
+                        modifier = Modifier.height(12.dp)
+                    )
+
+                    Text(
+                        text = "Пункт пропуска: $selectedCheckpoint"
+                    )
+
+                    Spacer(
                         modifier = Modifier.height(24.dp)
                     )
 
                     Text(
-                        text = "Здесь будет выбор пункта пропуска."
+                        text = "Отслеживание очереди будет подключено следующим этапом."
                     )
                 }
             }
