@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -96,10 +98,14 @@ fun QueueWatchApp() {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
                         .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+
+                    Spacer(
+                        modifier = Modifier.height(24.dp)
+                    )
 
                     Text(
                         text = "Настройка отслеживания",
@@ -131,25 +137,50 @@ fun QueueWatchApp() {
                     )
 
                     Spacer(
+                        modifier = Modifier.height(28.dp)
+                    )
+
+                    Text(
+                        text = "Выберите пункт пропуска",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    Spacer(
                         modifier = Modifier.height(24.dp)
                     )
 
                     Text(
-                        text = "Выберите пункт пропуска"
+                        text = "🇵🇱 Польша",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.fillMaxWidth()
                     )
 
                     Spacer(
-                        modifier = Modifier.height(12.dp)
+                        modifier = Modifier.height(8.dp)
                     )
 
                     Button(
                         onClick = {
-                            selectedCheckpoint = "Брузги"
+                            selectedCheckpoint = "Брест"
                             checkpointSelected = true
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Брузги")
+                        Text("Брест")
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            selectedCheckpoint = "Козловичи"
+                            checkpointSelected = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Козловичи")
                     }
 
                     Spacer(
@@ -172,13 +203,23 @@ fun QueueWatchApp() {
 
                     Button(
                         onClick = {
-                            selectedCheckpoint = "Козловичи"
+                            selectedCheckpoint = "Брузги"
                             checkpointSelected = true
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Козловичи")
+                        Text("Брузги")
                     }
+
+                    Spacer(
+                        modifier = Modifier.height(24.dp)
+                    )
+
+                    Text(
+                        text = "🇱🇹 Литва",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     Spacer(
                         modifier = Modifier.height(8.dp)
@@ -214,13 +255,55 @@ fun QueueWatchApp() {
 
                     Button(
                         onClick = {
-                            selectedCheckpoint = "Привалка"
+                            selectedCheckpoint = "Котловка"
                             checkpointSelected = true
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Привалка")
+                        Text("Котловка")
                     }
+
+                    Spacer(
+                        modifier = Modifier.height(24.dp)
+                    )
+
+                    Text(
+                        text = "🇱🇻 Латвия",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            selectedCheckpoint = "Григоровщина"
+                            checkpointSelected = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Григоровщина")
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            selectedCheckpoint = "Урбаны"
+                            checkpointSelected = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Урбаны")
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(32.dp)
+                    )
                 }
 
             } else {
