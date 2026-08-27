@@ -42,6 +42,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
+/* ============================================================
+   ГЛАВНОЕ ПРИЛОЖЕНИЕ
+   ============================================================ */
+
 @Composable
 fun QueueWatchApp() {
 
@@ -129,8 +134,7 @@ private fun StartScreen(
         )
 
         Text(
-            text =
-                "Мониторинг электронной очереди",
+            text = "Мониторинг электронной очереди",
             modifier =
                 Modifier.padding(top = 12.dp)
         )
@@ -346,6 +350,10 @@ private fun CheckpointScreen(
 }
 
 
+/* ============================================================
+   КНОПКА КПП
+   ============================================================ */
+
 @Composable
 private fun CheckpointButton(
     name: String,
@@ -395,8 +403,10 @@ private fun TrackingScreen(
 
 
     /*
-     * Пока реальный checkpointId подтверждён
-     * только для Беняконей.
+     * На данный момент реальный checkpointId
+     * подтверждён только для Беняконей.
+     *
+     * Остальные КПП не получают выдуманный ID.
      */
     val checkpointId =
         when (checkpointName) {
@@ -409,6 +419,9 @@ private fun TrackingScreen(
         }
 
 
+    /*
+     * Текст текущего сообщения.
+     */
     var message by remember {
 
         mutableStateOf(
@@ -417,27 +430,55 @@ private fun TrackingScreen(
     }
 
 
+    /*
+     * Последняя подтверждённая позиция.
+     *
+     * ВАЖНО:
+     * если автомобиль временно исчез из JSON,
+     * эта позиция НЕ обнуляется.
+     */
     var position by remember {
 
         mutableStateOf<Int?>(null)
     }
 
 
+    /*
+     * Текущее подтверждённое состояние.
+     */
     var state by remember {
 
         mutableStateOf<VehicleState?>(null)
     }
 
 
+    /*
+     * Прогноз.
+     */
     var estimatedMinutes by remember {
 
         mutableStateOf<Double?>(null)
     }
 
 
+    /*
+     * Скорость очереди.
+     */
     var speed by remember {
 
         mutableStateOf<QueueSpeed?>(null)
+    }
+
+
+    /*
+     * Счётчик успешных наблюдений автомобиля.
+     *
+     * Нужен для корректного поведения первого
+     * снимка и последующих временных исчезновений.
+     */
+    var vehicleWasConfirmed by remember {
+
+        mutableStateOf(false)
     }
 
 
@@ -448,11 +489,20 @@ private fun TrackingScreen(
 
         /*
          * Новый мониторинг —
-         * очищаем старую историю.
+         * полностью очищаем старую историю.
          */
         analyzer.reset()
 
+        position = null
+        state = null
+        estimatedMinutes = null
+        speed = null
+        vehicleWasConfirmed = false
 
+
+        /*
+         * Проверяем номер автомобиля.
+         */
         if (carNumber.isBlank()) {
 
             message =
@@ -462,6 +512,9 @@ private fun TrackingScreen(
         }
 
 
+        /*
+         * Проверяем наличие ID КПП.
+         */
         if (checkpointId == null) {
 
             message =
@@ -485,6 +538,9 @@ private fun TrackingScreen(
                     "Получение данных очереди..."
 
 
+                /*
+                 * Получаем свежий JSON.
+                 */
                 val response =
                     withContext(
                         Dispatchers.IO
@@ -501,149 +557,197 @@ private fun TrackingScreen(
                     onSuccess = { json ->
 
                         /*
-                         * Передаём полученный JSON
-                         * в анализатор.
+                         * Передаём весь снимок анализатору.
+                         *
+                         * Анализатор сохраняет историю
+                         * реальных серверных позиций.
                          */
-                        val queue =
-                            analyzer.processSnapshot(
-                                json
-                            )
+                        analyzer.processSnapshot(
+                            json
+                        )
 
 
                         /*
-                         * Нормализуем номер.
-                         */
-                        val normalized =
-                            normalizeRegnum(
-                                carNumber
-                            )
-
-
-                        /*
-                         * Ищем автомобиль
-                         * в живой очереди.
+                         * Ищем автомобиль непосредственно
+                         * в текущем серверном JSON.
+                         *
+                         * Важно:
+                         * поиск НЕ зависит от order_id.
                          */
                         val vehicle =
-                            queue.firstOrNull {
-
-                                normalizeRegnum(
-                                    it.regnum
-                                ) == normalized
-                            }
+                            analyzer.findVehicle(
+                                json,
+                                carNumber
+                            )
 
 
                         if (vehicle != null) {
 
                             /*
-                             * Автомобиль имеет
-                             * реальный order_id.
+                             * Автомобиль реально присутствует
+                             * в текущем ответе сервера.
                              */
-                            state =
-                                VehicleState.IN_QUEUE
-
-                            position =
-                                vehicle.position
+                            vehicleWasConfirmed = true
 
 
-                            val forecast =
-                                analyzer.calculateForecast(
-                                    vehicle.regnum
+                            /*
+                             * Определяем состояние только
+                             * по данным текущего сервера.
+                             */
+                            val detectedState =
+                                analyzer.determineState(
+                                    vehicle
                                 )
 
 
-                            estimatedMinutes =
-                                forecast
-                                    ?.estimatedMinutes
+                            when (detectedState) {
+
+                                VehicleState.IN_QUEUE -> {
+
+                                    /*
+                                     * Сервер передал order_id.
+                                     *
+                                     * Это подтверждённое нахождение
+                                     * в живой очереди.
+                                     */
+                                    state =
+                                        VehicleState.IN_QUEUE
 
 
-                            speed =
-                                forecast?.speed
+                                    /*
+                                     * Позиция берётся только
+                                     * из серверного order_id.
+                                     */
+                                    position =
+                                        vehicle.position
 
 
-                            message =
-                                "Автомобиль находится " +
-                                "в живой очереди."
+                                    /*
+                                     * После нового подтверждения
+                                     * пересчитываем прогноз.
+                                     */
+                                    val forecast =
+                                        analyzer.calculateForecast(
+                                            vehicle.regnum
+                                        )
+
+
+                                    estimatedMinutes =
+                                        forecast
+                                            ?.estimatedMinutes
+
+
+                                    speed =
+                                        forecast?.speed
+
+
+                                    message =
+                                        if (
+                                            position != null
+                                        ) {
+
+                                            "Автомобиль находится " +
+                                                "в живой очереди."
+
+                                        } else {
+
+                                            "Автомобиль найден, " +
+                                                "но сервер пока не передал " +
+                                                "позицию."
+                                        }
+                                }
+
+
+                                VehicleState.CALLED -> {
+
+                                    /*
+                                     * status == 3 —
+                                     * единственный подтверждённый
+                                     * сервером вызов.
+                                     */
+                                    state =
+                                        VehicleState.CALLED
+
+
+                                    /*
+                                     * После подтверждённого вызова
+                                     * позиция очереди больше не нужна.
+                                     */
+                                    position = null
+
+                                    estimatedMinutes = null
+
+                                    speed = null
+
+
+                                    message =
+                                        "Автомобиль вызван " +
+                                            "в пункт пропуска."
+                                }
+
+
+                                VehicleState.UNKNOWN -> {
+
+                                    /*
+                                     * Автомобиль есть в JSON,
+                                     * но сервер не дал однозначного
+                                     * состояния.
+                                     */
+                                    state =
+                                        VehicleState.UNKNOWN
+
+
+                                    position = null
+
+                                    estimatedMinutes = null
+
+                                    speed = null
+
+
+                                    message =
+                                        "Автомобиль обнаружен, " +
+                                            "но его состояние " +
+                                            "пока не определено."
+                                }
+                            }
+
 
                         } else {
 
                             /*
-                             * Машины с order_id
-                             * в живой очереди нет.
+                             * КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ.
                              *
-                             * Проверяем весь исходный JSON
-                             * на случай status = 3.
+                             * Автомобиль отсутствует в текущем
+                             * JSON.
+                             *
+                             * Мы НЕ считаем это вызовом.
+                             *
+                             * Мы НЕ меняем state.
+                             *
+                             * Мы НЕ обнуляем position.
+                             *
+                             * Мы НЕ обнуляем прогноз.
+                             *
+                             * Мы ждём следующий снимок.
                              */
-                            val allVehicles =
-                                analyzer.parseQueue(
-                                    json
-                                )
-
-
-                            val rawVehicle =
-                                allVehicles.firstOrNull {
-
-                                    normalizeRegnum(
-                                        it.regnum
-                                    ) == normalized
-                                }
-
-
-                            if (
-                                rawVehicle != null
-                            ) {
-
-                                val detectedState =
-                                    analyzer.determineState(
-                                        rawVehicle
-                                    )
-
-                                state =
-                                    detectedState
-
-                                position = null
-                                estimatedMinutes = null
-                                speed = null
-
+                            if (vehicleWasConfirmed) {
 
                                 message =
-                                    when (
-                                        detectedState
-                                    ) {
-
-                                        VehicleState.CALLED ->
-                                            "Автомобиль " +
-                                            "вызван в пункт пропуска."
-
-                                        VehicleState.UNKNOWN ->
-                                            "Автомобиль обнаружен, " +
-                                            "но его состояние " +
-                                            "пока не определено."
-
-                                        VehicleState.IN_QUEUE ->
-                                            "Автомобиль находится " +
-                                            "в живой очереди."
-                                    }
+                                    "Автомобиль временно отсутствует " +
+                                        "в текущем снимке. " +
+                                        "Сохраняем последнее подтверждённое " +
+                                        "состояние и ждём обновление."
 
                             } else {
 
                                 /*
-                                 * В текущем снимке
-                                 * автомобиля нет.
-                                 *
-                                 * Не объявляем его сразу
-                                 * вызванным.
+                                 * Автомобиль ещё ни разу
+                                 * не был найден.
                                  */
-                                state =
-                                    VehicleState.UNKNOWN
-
-                                position = null
-                                estimatedMinutes = null
-                                speed = null
-
                                 message =
                                     "Автомобиль не найден " +
-                                    "в текущем снимке. " +
-                                    "Ожидаем следующее обновление."
+                                        "в текущем снимке. " +
+                                        "Ожидаем следующее обновление."
                             }
                         }
                     },
@@ -651,202 +755,32 @@ private fun TrackingScreen(
 
                     onFailure = { error ->
 
+                        /*
+                         * Ошибка сети НЕ означает,
+                         * что автомобиль исчез или вызван.
+                         *
+                         * Последнее подтверждённое состояние
+                         * сохраняем.
+                         */
                         message =
                             "Ошибка получения данных: " +
-                            (error.message
-                                ?: "неизвестная ошибка")
+                                (
+                                    error.message
+                                        ?: "неизвестная ошибка"
+                                )
                     }
                 )
 
             } catch (e: Exception) {
 
+                /*
+                 * Исключение сети/API также не меняет
+                 * состояние автомобиля.
+                 */
                 message =
                     "Ошибка: " +
-                    (e.message
-                        ?: "неизвестная ошибка")
-            }
-
-
-            /*
-             * Ждём одну минуту
-             * перед следующим запросом.
-             */
-            delay(60_000)
-        }
-    }
-
-
-    /* ========================================================
-       ИНТЕРФЕЙС
-       ======================================================== */
-
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-
-        verticalArrangement =
-            Arrangement.Center
-    ) {
-
-        Text(
-            text = "Отслеживание",
-            style =
-                MaterialTheme.typography.headlineMedium
-        )
-
-        Spacer(
-            modifier =
-                Modifier.height(24.dp)
-        )
-
-        Text(
-            text =
-                "Автомобиль: $carNumber"
-        )
-
-        Spacer(
-            modifier =
-                Modifier.height(12.dp)
-        )
-
-        Text(
-            text =
-                "Пункт пропуска: $checkpointName"
-        )
-
-        Spacer(
-            modifier =
-                Modifier.height(24.dp)
-        )
-
-
-        Text(
-            text =
-                when (state) {
-
-                    VehicleState.IN_QUEUE ->
-                        "В ЖИВОЙ ОЧЕРЕДИ"
-
-                    VehicleState.CALLED ->
-                        "ВЫЗВАН В ПУНКТ ПРОПУСКА"
-
-                    VehicleState.UNKNOWN ->
-                        "СОСТОЯНИЕ НЕ ОПРЕДЕЛЕНО"
-
-                    null ->
-                        "ПОДКЛЮЧЕНИЕ..."
-                },
-
-            style =
-                MaterialTheme.typography.titleLarge
-        )
-
-
-        if (position != null) {
-
-            Spacer(
-                modifier =
-                    Modifier.height(12.dp)
-            )
-
-            Text(
-                text =
-                    "Позиция: №$position"
-            )
-        }
-
-
-        if (speed != null) {
-
-            Spacer(
-                modifier =
-                    Modifier.height(12.dp)
-            )
-
-            Text(
-                text =
-                    "Скорость очереди: " +
-                    "${"%.1f".format(
-                        speed!!.positionsPerHour
-                    )} поз./час"
-            )
-        }
-
-
-        if (
-            estimatedMinutes != null
-        ) {
-
-            Spacer(
-                modifier =
-                    Modifier.height(12.dp)
-            )
-
-            Text(
-                text =
-                    "Прогноз до вызова: " +
-                    formatMinutes(
-                        estimatedMinutes!!
-                    )
-            )
-        }
-
-
-        Spacer(
-            modifier =
-                Modifier.height(20.dp)
-        )
-
-
-        Text(
-            text = message
-        )
-    }
-}
-
-
-/* ============================================================
-   ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-   ============================================================ */
-
-private fun normalizeRegnum(
-    value: String
-): String {
-
-    return value
-        .uppercase()
-        .replace(" ", "")
-        .replace("-", "")
-        .trim()
-}
-
-
-private fun formatMinutes(
-    minutes: Double
-): String {
-
-    val rounded =
-        minutes
-            .coerceAtLeast(0.0)
-            .toInt()
-
-    val hours =
-        rounded / 60
-
-    val remaining =
-        rounded % 60
-
-    return if (hours > 0) {
-
-        "$hours ч $remaining мин"
-
-    } else {
-
-        "$remaining мин"
-    }
-}
+                        (
+                            e.message
+                                ?: "неизвестная ошибка"
+                        )
+  
