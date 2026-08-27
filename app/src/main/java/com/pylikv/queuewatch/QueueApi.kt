@@ -11,32 +11,54 @@ import java.net.URLEncoder
 /**
  * Сетевой слой QueueWatch.
  *
- * Получает актуальный снимок электронной очереди.
- *
- * ВАЖНО:
- * Здесь мы пока только получаем исходный JSON.
- * Разбор JSON выполняется отдельным слоем,
- * чтобы сетевой код не смешивался с логикой очереди.
+ * Получает реальный JSON электронной очереди
+ * с API Belarusborder.
  */
 class QueueApi {
 
     companion object {
 
         private const val BASE_URL =
-            "https://belarusborder.by/monitoring-new"
+            "https://belarusborder.by/info/monitoring-new"
 
-        private const val CONNECT_TIMEOUT_MS = 15_000
-        private const val READ_TIMEOUT_MS = 15_000
+        private const val DEFAULT_TOKEN =
+            "test"
+
+        private const val CONNECT_TIMEOUT_MS =
+            15_000
+
+        private const val READ_TIMEOUT_MS =
+            15_000
     }
 
+    /**
+     * Получить актуальный снимок очереди.
+     *
+     * checkpointId — идентификатор пункта пропуска.
+     *
+     * ВАЖНО:
+     * regnum здесь больше НЕ передаём.
+     *
+     * Реальный пойманный нами запрос:
+     *
+     * GET /info/monitoring-new
+     *     ?token=...
+     *     &checkpointId=...
+     */
     suspend fun getMonitoring(
         checkpointId: String,
-        regnum: String
+        token: String = DEFAULT_TOKEN
     ): Result<String> = withContext(Dispatchers.IO) {
 
         var connection: HttpURLConnection? = null
 
         try {
+
+            val encodedToken =
+                URLEncoder.encode(
+                    token,
+                    Charsets.UTF_8.name()
+                )
 
             val encodedCheckpoint =
                 URLEncoder.encode(
@@ -44,22 +66,22 @@ class QueueApi {
                     Charsets.UTF_8.name()
                 )
 
-            val encodedRegnum =
-                URLEncoder.encode(
-                    regnum,
-                    Charsets.UTF_8.name()
-                )
-
             val url = URL(
-                "$BASE_URL?checkpointId=$encodedCheckpoint&regnum=$encodedRegnum"
+                "$BASE_URL" +
+                    "?token=$encodedToken" +
+                    "&checkpointId=$encodedCheckpoint"
             )
 
             connection =
                 url.openConnection() as HttpURLConnection
 
             connection.requestMethod = "GET"
-            connection.connectTimeout = CONNECT_TIMEOUT_MS
-            connection.readTimeout = READ_TIMEOUT_MS
+
+            connection.connectTimeout =
+                CONNECT_TIMEOUT_MS
+
+            connection.readTimeout =
+                READ_TIMEOUT_MS
 
             connection.setRequestProperty(
                 "Accept",
@@ -101,7 +123,10 @@ class QueueApi {
                     IllegalStateException(
                         buildString {
 
-                            append("Ошибка сервера: HTTP ")
+                            append(
+                                "Ошибка сервера: HTTP "
+                            )
+
                             append(responseCode)
 
                             if (body.isNotBlank()) {
