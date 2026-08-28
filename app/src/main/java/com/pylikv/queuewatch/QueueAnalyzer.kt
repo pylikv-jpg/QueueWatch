@@ -7,37 +7,30 @@ import kotlin.math.max
 /**
  * Анализатор электронной очереди QueueWatch.
  *
- * ВАЖНО:
+ * Главный принцип:
  *
- * Анализатор НЕ придумывает состояние автомобиля.
- * Он работает только с данными, полученными от сервера.
+ * ВСЕ решения принимаются только на основании
+ * фактических данных сервера.
  *
- * Основные правила:
- *
- * 1. Автомобиль ищется непосредственно в truckLiveQueue.
- *
- * 2. order_id != null:
- *      сервер сообщает текущую позицию автомобиля
- *      в живой очереди.
- *
- * 3. status == 3:
- *      сервер сообщает подтверждённый вызов.
- *
- * 4. status == 2 / type_queue == 1:
- *      сами по себе не считаются вызовом.
- *
- * 5. Если автомобиль временно отсутствует
- *    в очередном JSON:
- *      состояние НЕ меняем автоматически.
- *
- * 6. Позиция всегда берётся из order_id,
- *    если сервер его передал.
+ * Анализируется вся truckLiveQueue, а не только
+ * выбранный пользователем автомобиль.
  */
 class QueueAnalyzer {
 
+    /*
+     * История движения каждого автомобиля.
+     *
+     * Ключ:
+     * нормализованный регистрационный номер.
+     */
     private val history =
         mutableMapOf<String, MutableList<QueueHistoryPoint>>()
 
+
+    /*
+     * Последняя запись каждого автомобиля,
+     * реально полученная от сервера.
+     */
     private val previousVehicles =
         mutableMapOf<String, QueueVehicle>()
 
@@ -45,14 +38,12 @@ class QueueAnalyzer {
     /**
      * Нормализация регистрационного номера.
      *
-     * Примеры:
+     * 773AGM03
+     * 773agm03
+     * 773 AGM03
+     * 773-AGM03
      *
-     * NGK209
-     * ngk209
-     * NGK 209
-     * NGK-209
-     *
-     * будут сопоставляться одинаково.
+     * будут считаться одним автомобилем.
      */
     private fun normalizeRegnum(
         value: String
@@ -69,13 +60,10 @@ class QueueAnalyzer {
     /**
      * Разбор полного JSON ответа сервера.
      *
-     * Мы НЕ фильтруем записи по order_id.
+     * Читаем именно truckLiveQueue.
      *
-     * Это принципиально важно:
-     * сначала получаем все реальные записи
-     * из truckLiveQueue,
-     * а уже потом определяем состояние
-     * конкретного автомобиля.
+     * Никаких фильтров по order_id,
+     * status или type_queue здесь нет.
      */
     fun parseQueue(
         json: String
@@ -92,6 +80,7 @@ class QueueAnalyzer {
         val result =
             mutableListOf<QueueVehicle>()
 
+
         for (i in 0 until queue.length()) {
 
             val item =
@@ -104,6 +93,7 @@ class QueueAnalyzer {
                     "regnum",
                     ""
                 ).trim()
+
 
             if (regnum.isEmpty()) {
                 continue
@@ -167,21 +157,13 @@ class QueueAnalyzer {
             )
         }
 
+
         return result
     }
 
 
     /**
-     * Чтение nullable Integer.
-     *
-     * Сервер может прислать:
-     *
-     * null
-     * ""
-     * число
-     * строку с числом
-     *
-     * Поэтому не используем слепой optInt().
+     * Безопасное чтение nullable Int.
      */
     private fun readNullableInt(
         item: JSONObject,
@@ -195,10 +177,10 @@ class QueueAnalyzer {
             return null
         }
 
-        val value =
-            item.opt(key)
 
-        return when (value) {
+        return when (
+            val value = item.opt(key)
+        ) {
 
             is Number ->
                 value.toInt()
@@ -213,7 +195,7 @@ class QueueAnalyzer {
 
 
     /**
-     * Чтение nullable String.
+     * Безопасное чтение nullable String.
      */
     private fun readNullableString(
         item: JSONObject,
@@ -227,6 +209,7 @@ class QueueAnalyzer {
             return null
         }
 
+
         return item
             .optString(key)
             .trim()
@@ -237,95 +220,84 @@ class QueueAnalyzer {
 
 
     /**
-     * Поиск конкретного автомобиля
-     * непосредственно в текущем серверном JSON.
+     * Поиск конкретного автомобиля.
      *
-     * ВАЖНО:
-     *
-     * Здесь НЕТ проверки order_id.
-     *
-     * Поэтому автомобиль будет найден
-     * независимо от того,
-     * какой status/order_id/type_queue
-     * сервер ему прислал.
+     * Автомобиль ищется непосредственно
+     * в текущем truckLiveQueue.
      */
     fun findVehicle(
         json: String,
         regnum: String
     ): QueueVehicle? {
 
-        val normalizedTarget =
+        val target =
             normalizeRegnum(regnum)
 
-        if (normalizedTarget.isEmpty()) {
+
+        if (target.isEmpty()) {
             return null
         }
 
-        val vehicles =
-            parseQueue(json)
 
-        return vehicles.firstOrNull {
+        return parseQueue(json)
+            .firstOrNull {
 
-            normalizeRegnum(
-                it.regnum
-            ) == normalizedTarget
-        }
+                normalizeRegnum(
+                    it.regnum
+                ) == target
+            }
     }
 
 
     /**
-     * Определение состояния автомобиля
-     * ИСКЛЮЧИТЕЛЬНО по текущей записи сервера.
+     * Определение состояния автомобиля.
      *
-     * Никаких искусственных состояний
-     * по предыдущей позиции здесь нет.
+     * ПОРЯДОК ПРОВЕРКИ ПРИНЦИПИАЛЬНО ВАЖЕН:
+     *
+     * 1. status == 3
+     *      подтверждённый вызов.
+     *
+     * 2. order_id != null
+     *      автомобиль находится в живой очереди.
+     *
+     * 3. всё остальное
+     *      состояние неизвестно.
+     *
+     * Поэтому явный status=3 имеет приоритет
+     * даже если сервер одновременно передал order_id.
      */
     fun determineState(
         vehicle: QueueVehicle
     ): VehicleState {
 
-        /*
-         * Сервер дал order_id.
-         *
-         * Значит сервер сообщает,
-         * что автомобиль находится
-         * в живой очереди.
-         */
-        if (
-            vehicle.orderId != null
-        ) {
-            return VehicleState.IN_QUEUE
-        }
-
-
-        /*
-         * Сервер явно сообщил status = 3.
-         *
-         * Только этот серверный признак
-         * позволяет определить CALLED.
-         */
         if (
             vehicle.status == 3
         ) {
+
             return VehicleState.CALLED
         }
 
 
-        /*
-         * Остальные комбинации
-         * пока не считаем вызовом.
-         */
+        if (
+            vehicle.orderId != null
+        ) {
+
+            return VehicleState.IN_QUEUE
+        }
+
+
         return VehicleState.UNKNOWN
     }
 
 
     /**
-     * Обрабатывает новый снимок очереди.
+     * Обработка нового снимка очереди.
      *
-     * ВАЖНО:
+     * Здесь анализируется ВСЯ очередь.
      *
-     * Отсутствие автомобиля в новом JSON
-     * НЕ меняет его состояние автоматически.
+     * Это позволяет в дальнейшем получать
+     * статистику движения КПП независимо
+     * от того, какой автомобиль выбрал пользователь.
      */
     fun processSnapshot(
         json: String,
@@ -337,13 +309,15 @@ class QueueAnalyzer {
             parseQueue(json)
 
 
-        /*
-         * Обрабатываем только то,
-         * что реально пришло от сервера.
-         */
         for (
             vehicle in vehicles
         ) {
+
+            val normalizedRegnum =
+                normalizeRegnum(
+                    vehicle.regnum
+                )
+
 
             val state =
                 determineState(
@@ -352,25 +326,118 @@ class QueueAnalyzer {
 
 
             /*
-             * История позиции создаётся
-             * только когда сервер
-             * реально передал order_id.
+             * Предыдущая запись этого автомобиля.
+             */
+            val previous =
+                previousVehicles[
+                    normalizedRegnum
+                ]
+
+
+            /*
+             * Записываем историю только тогда,
+             * когда сервер реально сообщает позицию.
              */
             if (
                 state ==
-                VehicleState.IN_QUEUE &&
+                    VehicleState.IN_QUEUE &&
                 vehicle.position != null
             ) {
 
-                history
-                    .getOrPut(
-                        normalizeRegnum(
-                            vehicle.regnum
-                        )
+                val currentPosition =
+                    vehicle.position
+
+
+                val vehicleHistory =
+                    history.getOrPut(
+                        normalizedRegnum
                     ) {
                         mutableListOf()
                     }
-                    .add(
+
+
+                /*
+                 * Последняя записанная точка.
+                 */
+                val lastPoint =
+                    vehicleHistory.lastOrNull()
+
+
+                /*
+                 * Записываем новую историческую точку:
+                 *
+                 * - если это первая позиция;
+                 * - если позиция изменилась;
+                 * - если предыдущего наблюдения нет.
+                 *
+                 * Одинаковые позиции каждую минуту
+                 * НЕ засоряют историю.
+                 */
+                val shouldRecord =
+                    lastPoint == null ||
+                        lastPoint.position !=
+                            currentPosition
+
+
+                if (
+                    shouldRecord
+                ) {
+
+                    vehicleHistory.add(
+
+                        QueueHistoryPoint(
+
+                            timestampMillis =
+                                timestampMillis,
+
+                            position =
+                                currentPosition,
+
+                            state =
+                                VehicleState.IN_QUEUE
+                        )
+                    )
+                }
+            }
+
+
+            /*
+             * Если сервер явно сообщил вызов,
+             * тоже сохраняем событие в историю.
+             *
+             * Позиция при этом может быть null.
+             */
+            if (
+                state ==
+                    VehicleState.CALLED
+            ) {
+
+                val vehicleHistory =
+                    history.getOrPut(
+                        normalizedRegnum
+                    ) {
+                        mutableListOf()
+                    }
+
+
+                val lastPoint =
+                    vehicleHistory.lastOrNull()
+
+
+                /*
+                 * Не создаём бесконечные одинаковые
+                 * события CALLED при каждом запросе.
+                 */
+                val alreadyCalled =
+                    lastPoint?.state ==
+                        VehicleState.CALLED
+
+
+                if (
+                    !alreadyCalled
+                ) {
+
+                    vehicleHistory.add(
 
                         QueueHistoryPoint(
 
@@ -381,41 +448,31 @@ class QueueAnalyzer {
                                 vehicle.position,
 
                             state =
-                                VehicleState.IN_QUEUE
+                                VehicleState.CALLED
                         )
                     )
+                }
             }
 
 
             /*
-             * Сохраняем последнюю
-             * серверную запись автомобиля.
-             *
-             * Никаких изменений в ней
-             * не производим.
+             * Сохраняем последнюю серверную запись.
              */
             previousVehicles[
-                normalizeRegnum(
-                    vehicle.regnum
-                )
+                normalizedRegnum
             ] = vehicle
         }
 
 
         /*
-         * Возвращаем ВСЕ записи,
-         * полученные от сервера.
-         *
-         * Никакой фильтрации
-         * по order_id здесь больше нет.
+         * Возвращаем всю очередь.
          */
         return vehicles
     }
 
 
     /**
-     * Возвращает последнюю серверную запись
-     * автомобиля, если она ранее была получена.
+     * Последняя серверная запись автомобиля.
      */
     fun getPreviousVehicle(
         regnum: String
@@ -430,7 +487,7 @@ class QueueAnalyzer {
 
 
     /**
-     * Возвращает историю конкретного автомобиля.
+     * История автомобиля.
      */
     fun getHistory(
         regnum: String
@@ -447,10 +504,21 @@ class QueueAnalyzer {
 
 
     /**
-     * Расчёт скорости движения очереди.
+     * Сколько автомобилей уже имеет историю.
      *
-     * Используются только реальные
-     * серверные позиции.
+     * В будущем это пригодится для статистики КПП.
+     */
+    fun getTrackedVehicleCount(): Int {
+
+        return history.size
+    }
+
+
+    /**
+     * Расчёт скорости движения очереди
+     * для конкретного автомобиля.
+     *
+     * Используются реальные изменения позиции.
      */
     fun calculateVehicleSpeed(
         regnum: String
@@ -465,7 +533,7 @@ class QueueAnalyzer {
                 ?.filter {
 
                     it.position != null &&
-                    it.state ==
+                        it.state ==
                         VehicleState.IN_QUEUE
                 }
                 ?: return null
@@ -481,6 +549,7 @@ class QueueAnalyzer {
         val first =
             points.first()
 
+
         val last =
             points.last()
 
@@ -488,6 +557,7 @@ class QueueAnalyzer {
         val firstPosition =
             first.position
                 ?: return null
+
 
         val lastPosition =
             last.position
@@ -506,15 +576,15 @@ class QueueAnalyzer {
         }
 
 
+        /*
+         * Положительное значение означает,
+         * что автомобиль продвинулся вперёд.
+         */
         val positionsPassed =
             firstPosition -
                 lastPosition
 
 
-        /*
-         * Очередь должна реально
-         * продвинуться вперёд.
-         */
         if (
             positionsPassed <= 0
         ) {
@@ -563,11 +633,11 @@ class QueueAnalyzer {
 
 
     /**
-     * Расчёт прогноза до начала вызова.
+     * Расчёт прогноза для автомобиля.
      *
-     * Текущая позиция всегда берётся
-     * из последней подтверждённой
-     * серверной позиции.
+     * Если истории пока недостаточно,
+     * возвращается текущая позиция,
+     * но скорость и время остаются null.
      */
     fun calculateForecast(
         regnum: String
@@ -582,7 +652,7 @@ class QueueAnalyzer {
                 ?.filter {
 
                     it.position != null &&
-                    it.state ==
+                        it.state ==
                         VehicleState.IN_QUEUE
                 }
                 ?: return null
@@ -614,11 +684,7 @@ class QueueAnalyzer {
 
 
         /*
-         * Истории ещё недостаточно
-         * для прогноза.
-         *
-         * Но текущую позицию
-         * мы всё равно можем показать.
+         * Истории ещё мало.
          */
         if (
             speed == null
@@ -664,7 +730,10 @@ class QueueAnalyzer {
 
 
     /**
-     * Сбрасывает историю нового мониторинга.
+     * Полная очистка текущей истории.
+     *
+     * Используется при начале нового
+     * независимого сеанса мониторинга.
      */
     fun reset() {
 
