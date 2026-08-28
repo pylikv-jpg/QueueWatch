@@ -204,8 +204,29 @@ private fun SetupScreen(
             modifier = Modifier.height(16.dp)
         )
 
+        /*
+         * Сейчас подключены только подтверждённые КПП.
+         *
+         * Бенякони — уже проверенный рабочий вариант.
+         */
+
         CheckpointButton(
             name = "Бенякони",
+            onClick = onCheckpointSelected
+        )
+
+        CheckpointButton(
+            name = "Берестовица",
+            onClick = onCheckpointSelected
+        )
+
+        CheckpointButton(
+            name = "Брест",
+            onClick = onCheckpointSelected
+        )
+
+        CheckpointButton(
+            name = "Григоровщина",
             onClick = onCheckpointSelected
         )
 
@@ -215,12 +236,7 @@ private fun SetupScreen(
         )
 
         CheckpointButton(
-            name = "Котловка",
-            onClick = onCheckpointSelected
-        )
-
-        CheckpointButton(
-            name = "Брузги",
+            name = "Козловичи",
             onClick = onCheckpointSelected
         )
     }
@@ -274,18 +290,33 @@ private fun TrackingScreen(
 
 
     /*
-     * Сейчас у нас точно подтверждён
-     * только ID Беняконей.
+     * Реальные checkpointId, полученные из API.
      *
-     * Реальный ID получен из JSON API:
+     * Бенякони — существующий рабочий ID.
      *
-     * 53d94097-2b34-11ec-8467-ac1f6bf889c0
+     * Остальные пять ID подтверждены
+     * полученными нами JSON-ответами API.
      */
 
     val checkpointId = when (checkpointName) {
 
         "Бенякони" ->
             "53d94097-2b34-11ec-8467-ac1f6bf889c0"
+
+        "Берестовица" ->
+            "7e46a2d1-ab2f-11ec-bafb-ac1f6bf889c1"
+
+        "Брест" ->
+            "a9173a85-3fc0-424c-84f0-defa632481e4"
+
+        "Григоровщина" ->
+            "ffe81c11-00d6-11e8-a967-b0dd44bde851"
+
+        "Каменный Лог" ->
+            "b60677d4-8a00-4f93-a781-e129e1692a03"
+
+        "Козловичи" ->
+            "98b5be92-d3a5-4ba2-9106-76eb4eb3df49"
 
         else ->
             null
@@ -330,6 +361,8 @@ private fun TrackingScreen(
     /*
      * Этот флаг нужен для правильной обработки
      * временного исчезновения автомобиля.
+     *
+     * Исчезновение из JSON НЕ считается вызовом.
      */
 
     var vehicleWasConfirmed by remember {
@@ -397,8 +430,12 @@ private fun TrackingScreen(
                         try {
 
                             /*
-                             * Разбираем весь полученный
-                             * truckLiveQueue.
+                             * Разбираем полный ответ API.
+                             *
+                             * QueueAnalyzer самостоятельно
+                             * обрабатывает truckLiveQueue,
+                             * carLiveQueue, busLiveQueue
+                             * и motorcycleLiveQueue.
                              */
 
                             val vehicles =
@@ -422,7 +459,7 @@ private fun TrackingScreen(
 
                             /*
                              * Ищем конкретный автомобиль
-                             * по regnum.
+                             * по регистрационному номеру.
                              */
 
                             val vehicle =
@@ -452,11 +489,8 @@ private fun TrackingScreen(
                                     VehicleState.IN_QUEUE -> {
 
                                         /*
-                                         * В реальном JSON:
-                                         *
-                                         * order_id = 5
-                                         *
-                                         * для 773AGM03.
+                                         * Используем реальный
+                                         * order_id из API.
                                          */
 
                                         position =
@@ -465,9 +499,7 @@ private fun TrackingScreen(
 
                                         /*
                                          * После первого наблюдения
-                                         * прогноза ещё может не быть.
-                                         *
-                                         * Это нормально.
+                                         * прогноза может ещё не быть.
                                          */
 
                                         val forecast =
@@ -503,7 +535,7 @@ private fun TrackingScreen(
                                     VehicleState.CALLED -> {
 
                                         /*
-                                         * Только status = 3
+                                         * Только status == 3
                                          * считается подтверждённым
                                          * вызовом.
                                          */
@@ -533,10 +565,9 @@ private fun TrackingScreen(
                             } else {
 
                                 /*
-                                 * Машина не присутствует
-                                 * в текущем снимке.
+                                 * Машины нет в текущем JSON.
                                  *
-                                 * Это НЕ вызов.
+                                 * Это НЕ означает вызов.
                                  */
 
                                 if (!vehicleWasConfirmed) {
@@ -550,7 +581,8 @@ private fun TrackingScreen(
                                 } else {
 
                                     /*
-                                     * Сохраняем последнюю позицию.
+                                     * Сохраняем последнее известное
+                                     * состояние и позицию.
                                      */
 
                                     message =
@@ -601,7 +633,7 @@ private fun TrackingScreen(
 
 
             /*
-             * Обновляем данные каждые 60 секунд.
+             * Обновление каждые 60 секунд.
              */
 
             delay(60_000)
@@ -735,10 +767,6 @@ private fun TrackingScreen(
             modifier = Modifier.height(20.dp)
         )
 
-
-        /*
-         * Диагностическая информация.
-         */
 
         Text(
             text =
