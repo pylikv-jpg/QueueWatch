@@ -27,9 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -85,9 +83,11 @@ fun QueueWatchApp() {
 
                 CheckpointScreen(
                     carNumber = carNumber,
+
                     onCarNumberChange = {
                         carNumber = it
                     },
+
                     onCheckpointSelected = {
                         selectedCheckpoint = it
                         checkpointSelected = true
@@ -133,16 +133,22 @@ private fun StartScreen(
                 MaterialTheme.typography.headlineLarge
         )
 
-        Text(
-            text = "Мониторинг электронной очереди",
+        Spacer(
             modifier =
-                Modifier.padding(top = 12.dp)
+                Modifier.height(12.dp)
+        )
+
+        Text(
+            text = "Мониторинг электронной очереди"
+        )
+
+        Spacer(
+            modifier =
+                Modifier.height(24.dp)
         )
 
         Button(
-            onClick = onStart,
-            modifier =
-                Modifier.padding(top = 24.dp)
+            onClick = onStart
         ) {
 
             Text(
@@ -154,7 +160,7 @@ private fun StartScreen(
 
 
 /* ============================================================
-   ВЫБОР АВТОМОБИЛЯ И КПП
+   ЭКРАН ВВОДА НОМЕРА И ВЫБОРА КПП
    ============================================================ */
 
 @Composable
@@ -202,6 +208,7 @@ private fun CheckpointScreen(
         )
 
         OutlinedTextField(
+
             value = carNumber,
 
             onValueChange = {
@@ -209,7 +216,9 @@ private fun CheckpointScreen(
             },
 
             label = {
-                Text("Номер автомобиля")
+                Text(
+                    "Номер автомобиля"
+                )
             },
 
             singleLine = true,
@@ -361,6 +370,7 @@ private fun CheckpointButton(
 ) {
 
     Button(
+
         onClick = {
             onClick(name)
         },
@@ -403,16 +413,21 @@ private fun TrackingScreen(
 
 
     /*
-     * На данный момент реальный checkpointId
-     * подтверждён только для Беняконей.
+     * СПРАВОЧНИК КПП.
      *
-     * Остальные КПП не получают выдуманный ID.
+     * Пока мы точно подтвердили
+     * реальный ID только для Беняконей.
+     *
+     * ВАЖНО:
+     * здесь используется правильный ID,
+     * полученный из реального ответа API.
      */
+
     val checkpointId =
         when (checkpointName) {
 
             "Бенякони" ->
-                "53d94097-2b34-11ec-8467-ac1f6fb889c0"
+                "53d94097-2b34-11ec-8467-ac1f6bf889c0"
 
             else ->
                 null
@@ -420,8 +435,9 @@ private fun TrackingScreen(
 
 
     /*
-     * Текст текущего сообщения.
+     * Текущее сообщение.
      */
+
     var message by remember {
 
         mutableStateOf(
@@ -433,10 +449,10 @@ private fun TrackingScreen(
     /*
      * Последняя подтверждённая позиция.
      *
-     * ВАЖНО:
-     * если автомобиль временно исчез из JSON,
-     * эта позиция НЕ обнуляется.
+     * Если автомобиль временно исчезнет
+     * из JSON, значение НЕ сбрасываем.
      */
+
     var position by remember {
 
         mutableStateOf<Int?>(null)
@@ -444,8 +460,9 @@ private fun TrackingScreen(
 
 
     /*
-     * Текущее подтверждённое состояние.
+     * Текущее состояние автомобиля.
      */
+
     var state by remember {
 
         mutableStateOf<VehicleState?>(null)
@@ -453,8 +470,9 @@ private fun TrackingScreen(
 
 
     /*
-     * Прогноз.
+     * Прогноз времени.
      */
+
     var estimatedMinutes by remember {
 
         mutableStateOf<Double?>(null)
@@ -464,6 +482,7 @@ private fun TrackingScreen(
     /*
      * Скорость очереди.
      */
+
     var speed by remember {
 
         mutableStateOf<QueueSpeed?>(null)
@@ -471,16 +490,43 @@ private fun TrackingScreen(
 
 
     /*
-     * Счётчик успешных наблюдений автомобиля.
-     *
-     * Нужен для корректного поведения первого
-     * снимка и последующих временных исчезновений.
+     * Был ли автомобиль хотя бы один раз
+     * подтверждён сервером.
      */
+
     var vehicleWasConfirmed by remember {
 
         mutableStateOf(false)
     }
 
+
+    /*
+     * Количество автомобилей,
+     * полученных от сервера.
+     *
+     * Это добавлено специально для диагностики.
+     */
+
+    var queueCount by remember {
+
+        mutableStateOf<Int?>(null)
+    }
+
+
+    /*
+     * Время последнего успешного
+     * получения данных.
+     */
+
+    var lastUpdate by remember {
+
+        mutableStateOf("")
+    }
+
+
+    /*
+     * Главный цикл мониторинга.
+     */
 
     LaunchedEffect(
         carNumber,
@@ -488,9 +534,9 @@ private fun TrackingScreen(
     ) {
 
         /*
-         * Новый мониторинг —
-         * полностью очищаем старую историю.
+         * Начинаем новый мониторинг.
          */
+
         analyzer.reset()
 
         position = null
@@ -498,11 +544,14 @@ private fun TrackingScreen(
         estimatedMinutes = null
         speed = null
         vehicleWasConfirmed = false
+        queueCount = null
+        lastUpdate = ""
 
 
         /*
-         * Проверяем номер автомобиля.
+         * Проверяем номер.
          */
+
         if (carNumber.isBlank()) {
 
             message =
@@ -515,6 +564,7 @@ private fun TrackingScreen(
         /*
          * Проверяем наличие ID КПП.
          */
+
         if (checkpointId == null) {
 
             message =
@@ -526,10 +576,11 @@ private fun TrackingScreen(
 
 
         /*
-         * Бесконечный цикл мониторинга.
+         * Бесконечный мониторинг.
          *
-         * Новый запрос каждые 60 секунд.
+         * Запрос каждые 60 секунд.
          */
+
         while (true) {
 
             try {
@@ -541,15 +592,11 @@ private fun TrackingScreen(
                 /*
                  * Получаем свежий JSON.
                  */
-                val response =
-                    withContext(
-                        Dispatchers.IO
-                    ) {
 
-                        api.getMonitoring(
-                            checkpointId
-                        )
-                    }
+                val response =
+                    api.getMonitoring(
+                        checkpointId
+                    )
 
 
                 response.fold(
@@ -557,23 +604,42 @@ private fun TrackingScreen(
                     onSuccess = { json ->
 
                         /*
-                         * Передаём весь снимок анализатору.
-                         *
-                         * Анализатор сохраняет историю
-                         * реальных серверных позиций.
+                         * Разбираем полученный JSON.
                          */
-                        analyzer.processSnapshot(
-                            json
-                        )
+
+                        val vehicles =
+                            analyzer.processSnapshot(
+                                json
+                            )
 
 
                         /*
-                         * Ищем автомобиль непосредственно
-                         * в текущем серверном JSON.
-                         *
-                         * Важно:
-                         * поиск НЕ зависит от order_id.
+                         * Сохраняем количество
+                         * автомобилей в ответе.
                          */
+
+                        queueCount =
+                            vehicles.size
+
+
+                        /*
+                         * Запоминаем время
+                         * успешного получения.
+                         */
+
+                        lastUpdate =
+                            java.text.SimpleDateFormat(
+                                "HH:mm:ss",
+                                java.util.Locale.getDefault()
+                            ).format(
+                                java.util.Date()
+                            )
+
+
+                        /*
+                         * Ищем именно наш номер.
+                         */
+
                         val vehicle =
                             analyzer.findVehicle(
                                 json,
@@ -584,16 +650,17 @@ private fun TrackingScreen(
                         if (vehicle != null) {
 
                             /*
-                             * Автомобиль реально присутствует
-                             * в текущем ответе сервера.
+                             * Автомобиль найден.
                              */
+
                             vehicleWasConfirmed = true
 
 
                             /*
-                             * Определяем состояние только
-                             * по данным текущего сервера.
+                             * Определяем состояние
+                             * по данным сервера.
                              */
+
                             val detectedState =
                                 analyzer.determineState(
                                     vehicle
@@ -604,28 +671,24 @@ private fun TrackingScreen(
 
                                 VehicleState.IN_QUEUE -> {
 
-                                    /*
-                                     * Сервер передал order_id.
-                                     *
-                                     * Это подтверждённое нахождение
-                                     * в живой очереди.
-                                     */
                                     state =
                                         VehicleState.IN_QUEUE
 
 
                                     /*
-                                     * Позиция берётся только
-                                     * из серверного order_id.
+                                     * Позиция берётся
+                                     * непосредственно
+                                     * из order_id.
                                      */
+
                                     position =
                                         vehicle.position
 
 
                                     /*
-                                     * После нового подтверждения
-                                     * пересчитываем прогноз.
+                                     * Рассчитываем прогноз.
                                      */
+
                                     val forecast =
                                         analyzer.calculateForecast(
                                             vehicle.regnum
@@ -660,25 +723,14 @@ private fun TrackingScreen(
 
                                 VehicleState.CALLED -> {
 
-                                    /*
-                                     * status == 3 —
-                                     * единственный подтверждённый
-                                     * сервером вызов.
-                                     */
                                     state =
                                         VehicleState.CALLED
 
-
-                                    /*
-                                     * После подтверждённого вызова
-                                     * позиция очереди больше не нужна.
-                                     */
                                     position = null
 
                                     estimatedMinutes = null
 
                                     speed = null
-
 
                                     message =
                                         "Автомобиль вызван " +
@@ -688,21 +740,8 @@ private fun TrackingScreen(
 
                                 VehicleState.UNKNOWN -> {
 
-                                    /*
-                                     * Автомобиль есть в JSON,
-                                     * но сервер не дал однозначного
-                                     * состояния.
-                                     */
                                     state =
                                         VehicleState.UNKNOWN
-
-
-                                    position = null
-
-                                    estimatedMinutes = null
-
-                                    speed = null
-
 
                                     message =
                                         "Автомобиль обнаружен, " +
@@ -715,39 +754,41 @@ private fun TrackingScreen(
                         } else {
 
                             /*
-                             * КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ.
+                             * Автомобиль отсутствует
+                             * в текущем снимке.
                              *
-                             * Автомобиль отсутствует в текущем
-                             * JSON.
+                             * ВАЖНО:
                              *
-                             * Мы НЕ считаем это вызовом.
-                             *
-                             * Мы НЕ меняем state.
-                             *
-                             * Мы НЕ обнуляем position.
-                             *
-                             * Мы НЕ обнуляем прогноз.
-                             *
-                             * Мы ждём следующий снимок.
+                             * это НЕ означает вызов.
                              */
-                            if (vehicleWasConfirmed) {
+
+                            if (!vehicleWasConfirmed) {
+
+                                /*
+                                 * Первый запуск.
+                                 */
+
+                                state = null
 
                                 message =
-                                    "Автомобиль временно отсутствует " +
-                                        "в текущем снимке. " +
-                                        "Сохраняем последнее подтверждённое " +
-                                        "состояние и ждём обновление."
+                                    "Автомобиль пока не обнаружен. " +
+                                        "Ожидаем следующее обновление."
 
                             } else {
 
                                 /*
-                                 * Автомобиль ещё ни разу
-                                 * не был найден.
+                                 * Автомобиль раньше был найден,
+                                 * но сейчас временно отсутствует.
+                                 *
+                                 * Состояние и последнюю позицию
+                                 * сохраняем.
                                  */
+
                                 message =
-                                    "Автомобиль не найден " +
-                                        "в текущем снимке. " +
-                                        "Ожидаем следующее обновление."
+                                    "Данные по автомобилю " +
+                                        "временно отсутствуют. " +
+                                        "Последняя подтверждённая " +
+                                        "позиция сохраняется."
                             }
                         }
                     },
@@ -756,12 +797,10 @@ private fun TrackingScreen(
                     onFailure = { error ->
 
                         /*
-                         * Ошибка сети НЕ означает,
-                         * что автомобиль исчез или вызван.
-                         *
-                         * Последнее подтверждённое состояние
-                         * сохраняем.
+                         * Ошибка сети НЕ считается
+                         * изменением состояния автомобиля.
                          */
+
                         message =
                             "Ошибка получения данных: " +
                                 (
@@ -774,13 +813,61 @@ private fun TrackingScreen(
             } catch (e: Exception) {
 
                 /*
-                 * Исключение сети/API также не меняет
-                 * состояние автомобиля.
+                 * Защита от неожиданной ошибки.
                  */
+
                 message =
-                    "Ошибка: " +
+                    "Ошибка мониторинга: " +
                         (
                             e.message
                                 ?: "неизвестная ошибка"
                         )
-  
+            }
+
+
+            /*
+             * Следующее обновление через 60 секунд.
+             */
+
+            delay(60_000)
+        }
+    }
+
+
+    /* ========================================================
+       ИНТЕРФЕЙС
+       ======================================================== */
+
+    Column(
+
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+
+        horizontalAlignment =
+            Alignment.CenterHorizontally,
+
+        verticalArrangement =
+            Arrangement.Center
+    ) {
+
+        Text(
+            text = "Отслеживание",
+            style =
+                MaterialTheme.typography.headlineMedium
+        )
+
+        Spacer(
+            modifier =
+                Modifier.height(20.dp)
+        )
+
+
+        Text(
+            text = "Автомобиль: $carNumber"
+        )
+
+        Spacer(
+            modifier =
+          
