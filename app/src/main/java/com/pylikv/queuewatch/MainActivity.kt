@@ -28,6 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 
 class MainActivity : ComponentActivity() {
 
@@ -120,22 +124,18 @@ private fun StartScreen(
             .fillMaxSize()
             .padding(24.dp),
 
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.CenterHorizontally,
 
-        verticalArrangement =
-            Arrangement.Center
+        verticalArrangement = Arrangement.Center
     ) {
 
         Text(
             text = "QueueWatch",
-            style =
-                MaterialTheme.typography.headlineLarge
+            style = MaterialTheme.typography.headlineLarge
         )
 
         Spacer(
-            modifier =
-                Modifier.height(12.dp)
+            modifier = Modifier.height(12.dp)
         )
 
         Text(
@@ -143,8 +143,7 @@ private fun StartScreen(
         )
 
         Spacer(
-            modifier =
-                Modifier.height(24.dp)
+            modifier = Modifier.height(24.dp)
         )
 
         Button(
@@ -178,24 +177,20 @@ private fun CheckpointScreen(
             )
             .padding(24.dp),
 
-        horizontalAlignment =
-            Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
         Spacer(
-            modifier =
-                Modifier.height(24.dp)
+            modifier = Modifier.height(24.dp)
         )
 
         Text(
             text = "Настройка отслеживания",
-            style =
-                MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineMedium
         )
 
         Spacer(
-            modifier =
-                Modifier.height(24.dp)
+            modifier = Modifier.height(24.dp)
         )
 
         Text(
@@ -203,12 +198,10 @@ private fun CheckpointScreen(
         )
 
         Spacer(
-            modifier =
-                Modifier.height(12.dp)
+            modifier = Modifier.height(12.dp)
         )
 
         OutlinedTextField(
-
             value = carNumber,
 
             onValueChange = {
@@ -216,31 +209,25 @@ private fun CheckpointScreen(
             },
 
             label = {
-                Text(
-                    "Номер автомобиля"
-                )
+                Text("Номер автомобиля")
             },
 
             singleLine = true,
 
-            modifier =
-                Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(
-            modifier =
-                Modifier.height(28.dp)
+            modifier = Modifier.height(28.dp)
         )
 
         Text(
             text = "Выберите пункт пропуска",
-            style =
-                MaterialTheme.typography.titleLarge
+            style = MaterialTheme.typography.titleLarge
         )
 
         Spacer(
-            modifier =
-                Modifier.height(24.dp)
+            modifier = Modifier.height(24.dp)
         )
 
 
@@ -248,16 +235,12 @@ private fun CheckpointScreen(
 
         Text(
             text = "🇵🇱 Польша",
-            style =
-                MaterialTheme.typography.titleMedium,
-
-            modifier =
-                Modifier.fillMaxWidth()
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(
-            modifier =
-                Modifier.height(8.dp)
+            modifier = Modifier.height(8.dp)
         )
 
         CheckpointButton(
@@ -282,8 +265,7 @@ private fun CheckpointScreen(
 
 
         Spacer(
-            modifier =
-                Modifier.height(16.dp)
+            modifier = Modifier.height(16.dp)
         )
 
 
@@ -291,16 +273,12 @@ private fun CheckpointScreen(
 
         Text(
             text = "🇱🇹 Литва",
-            style =
-                MaterialTheme.typography.titleMedium,
-
-            modifier =
-                Modifier.fillMaxWidth()
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(
-            modifier =
-                Modifier.height(8.dp)
+            modifier = Modifier.height(8.dp)
         )
 
         CheckpointButton(
@@ -320,8 +298,7 @@ private fun CheckpointScreen(
 
 
         Spacer(
-            modifier =
-                Modifier.height(16.dp)
+            modifier = Modifier.height(16.dp)
         )
 
 
@@ -329,16 +306,12 @@ private fun CheckpointScreen(
 
         Text(
             text = "🇱🇻 Латвия",
-            style =
-                MaterialTheme.typography.titleMedium,
-
-            modifier =
-                Modifier.fillMaxWidth()
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(
-            modifier =
-                Modifier.height(8.dp)
+            modifier = Modifier.height(8.dp)
         )
 
         CheckpointButton(
@@ -352,8 +325,7 @@ private fun CheckpointScreen(
         )
 
         Spacer(
-            modifier =
-                Modifier.height(32.dp)
+            modifier = Modifier.height(32.dp)
         )
     }
 }
@@ -370,13 +342,11 @@ private fun CheckpointButton(
 ) {
 
     Button(
-
         onClick = {
             onClick(name)
         },
 
-        modifier =
-            Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
     ) {
 
         Text(
@@ -385,8 +355,7 @@ private fun CheckpointButton(
     }
 
     Spacer(
-        modifier =
-            Modifier.height(8.dp)
+        modifier = Modifier.height(8.dp)
     )
 }
 
@@ -401,42 +370,32 @@ private fun TrackingScreen(
     checkpointName: String
 ) {
 
-    val api =
-        remember {
-            QueueApi()
-        }
+    val api = remember {
+        QueueApi()
+    }
 
-    val analyzer =
-        remember {
-            QueueAnalyzer()
-        }
+    val analyzer = remember {
+        QueueAnalyzer()
+    }
 
 
-    /*
-     * СПРАВОЧНИК КПП.
-     *
-     * Пока мы точно подтвердили
-     * реальный ID только для Беняконей.
-     *
-     * ВАЖНО:
-     * здесь используется правильный ID,
-     * полученный из реального ответа API.
-     */
+    /* ========================================================
+       ID ПУНКТА ПРОПУСКА
+       ======================================================== */
 
-    val checkpointId =
-        when (checkpointName) {
+    val checkpointId = when (checkpointName) {
 
-            "Бенякони" ->
-                "53d94097-2b34-11ec-8467-ac1f6bf889c0"
+        "Бенякони" ->
+            "53d94097-2b34-11ec-8467-ac1f6bf889c0"
 
-            else ->
-                null
-        }
+        else ->
+            null
+    }
 
 
-    /*
-     * Текущее сообщение.
-     */
+    /* ========================================================
+       СОСТОЯНИЯ ИНТЕРФЕЙСА
+       ======================================================== */
 
     var message by remember {
 
@@ -446,22 +405,11 @@ private fun TrackingScreen(
     }
 
 
-    /*
-     * Последняя подтверждённая позиция.
-     *
-     * Если автомобиль временно исчезнет
-     * из JSON, значение НЕ сбрасываем.
-     */
-
     var position by remember {
 
         mutableStateOf<Int?>(null)
     }
 
-
-    /*
-     * Текущее состояние автомобиля.
-     */
 
     var state by remember {
 
@@ -469,19 +417,11 @@ private fun TrackingScreen(
     }
 
 
-    /*
-     * Прогноз времени.
-     */
-
     var estimatedMinutes by remember {
 
         mutableStateOf<Double?>(null)
     }
 
-
-    /*
-     * Скорость очереди.
-     */
 
     var speed by remember {
 
@@ -489,23 +429,11 @@ private fun TrackingScreen(
     }
 
 
-    /*
-     * Был ли автомобиль хотя бы один раз
-     * подтверждён сервером.
-     */
-
     var vehicleWasConfirmed by remember {
 
         mutableStateOf(false)
     }
 
-
-    /*
-     * Количество автомобилей,
-     * полученных от сервера.
-     *
-     * Это добавлено специально для диагностики.
-     */
 
     var queueCount by remember {
 
@@ -513,29 +441,20 @@ private fun TrackingScreen(
     }
 
 
-    /*
-     * Время последнего успешного
-     * получения данных.
-     */
-
     var lastUpdate by remember {
 
         mutableStateOf("")
     }
 
 
-    /*
-     * Главный цикл мониторинга.
-     */
+    /* ========================================================
+       ЦИКЛ МОНИТОРИНГА
+       ======================================================== */
 
     LaunchedEffect(
         carNumber,
         checkpointName
     ) {
-
-        /*
-         * Начинаем новый мониторинг.
-         */
 
         analyzer.reset()
 
@@ -548,9 +467,7 @@ private fun TrackingScreen(
         lastUpdate = ""
 
 
-        /*
-         * Проверяем номер.
-         */
+        /* ---------- Проверка номера ---------- */
 
         if (carNumber.isBlank()) {
 
@@ -561,25 +478,20 @@ private fun TrackingScreen(
         }
 
 
-        /*
-         * Проверяем наличие ID КПП.
-         */
+        /* ---------- Проверка КПП ---------- */
 
         if (checkpointId == null) {
 
             message =
-                "API для КПП «$checkpointName» " +
-                "пока не подключено."
+                "API для КПП «$checkpointName» пока не подключено."
 
             return@LaunchedEffect
         }
 
 
-        /*
-         * Бесконечный мониторинг.
-         *
-         * Запрос каждые 60 секунд.
-         */
+        /* ====================================================
+           БЕСКОНЕЧНЫЙ ЦИКЛ
+           ==================================================== */
 
         while (true) {
 
@@ -589,9 +501,7 @@ private fun TrackingScreen(
                     "Получение данных очереди..."
 
 
-                /*
-                 * Получаем свежий JSON.
-                 */
+                /* ---------- Запрос API ---------- */
 
                 val response =
                     api.getMonitoring(
@@ -603,193 +513,185 @@ private fun TrackingScreen(
 
                     onSuccess = { json ->
 
-                        /*
-                         * Разбираем полученный JSON.
-                         */
+                        try {
 
-                        val vehicles =
-                            analyzer.processSnapshot(
-                                json
-                            )
+                            /* --------------------------------
+                               Разбор снимка
+                               -------------------------------- */
 
-
-                        /*
-                         * Сохраняем количество
-                         * автомобилей в ответе.
-                         */
-
-                        queueCount =
-                            vehicles.size
-
-
-                        /*
-                         * Запоминаем время
-                         * успешного получения.
-                         */
-
-                        lastUpdate =
-                            java.text.SimpleDateFormat(
-                                "HH:mm:ss",
-                                java.util.Locale.getDefault()
-                            ).format(
-                                java.util.Date()
-                            )
-
-
-                        /*
-                         * Ищем именно наш номер.
-                         */
-
-                        val vehicle =
-                            analyzer.findVehicle(
-                                json,
-                                carNumber
-                            )
-
-
-                        if (vehicle != null) {
-
-                            /*
-                             * Автомобиль найден.
-                             */
-
-                            vehicleWasConfirmed = true
-
-
-                            /*
-                             * Определяем состояние
-                             * по данным сервера.
-                             */
-
-                            val detectedState =
-                                analyzer.determineState(
-                                    vehicle
+                            val vehicles =
+                                analyzer.processSnapshot(
+                                    json
                                 )
 
 
-                            when (detectedState) {
-
-                                VehicleState.IN_QUEUE -> {
-
-                                    state =
-                                        VehicleState.IN_QUEUE
+                            queueCount =
+                                vehicles.size
 
 
-                                    /*
-                                     * Позиция берётся
-                                     * непосредственно
-                                     * из order_id.
-                                     */
+                            /* --------------------------------
+                               Время последнего обновления
+                               -------------------------------- */
 
-                                    position =
-                                        vehicle.position
-
-
-                                    /*
-                                     * Рассчитываем прогноз.
-                                     */
-
-                                    val forecast =
-                                        analyzer.calculateForecast(
-                                            vehicle.regnum
-                                        )
+                            lastUpdate =
+                                SimpleDateFormat(
+                                    "HH:mm:ss",
+                                    Locale.getDefault()
+                                ).format(
+                                    Date()
+                                )
 
 
-                                    estimatedMinutes =
-                                        forecast
-                                            ?.estimatedMinutes
+                            /* --------------------------------
+                               Поиск автомобиля
+                               -------------------------------- */
+
+                            val vehicle =
+                                analyzer.findVehicle(
+                                    json,
+                                    carNumber
+                                )
 
 
-                                    speed =
-                                        forecast?.speed
+                            if (vehicle != null) {
+
+                                vehicleWasConfirmed = true
 
 
-                                    message =
-                                        if (
-                                            position != null
-                                        ) {
+                                /* ----------------------------
+                                   Определяем состояние
+                                   ---------------------------- */
 
-                                            "Автомобиль находится " +
-                                                "в живой очереди."
+                                val detectedState =
+                                    analyzer.determineState(
+                                        vehicle
+                                    )
 
-                                        } else {
 
-                                            "Автомобиль найден, " +
-                                                "но сервер пока не передал " +
-                                                "позицию."
-                                        }
+                                state =
+                                    detectedState
+
+
+                                when (detectedState) {
+
+                                    /* ========================
+                                       ЖИВАЯ ОЧЕРЕДЬ
+                                       ======================== */
+
+                                    VehicleState.IN_QUEUE -> {
+
+                                        position =
+                                            vehicle.position
+
+
+                                        /* --------------------
+                                           Прогноз
+                                           -------------------- */
+
+                                        val forecast =
+                                            analyzer.calculateForecast(
+                                                vehicle.regnum
+                                            )
+
+
+                                        estimatedMinutes =
+                                            forecast?.estimatedMinutes
+
+
+                                        speed =
+                                            forecast?.speed
+
+
+                                        message =
+                                            if (
+                                                position != null
+                                            ) {
+
+                                                "Автомобиль находится " +
+                                                    "в живой очереди."
+
+                                            } else {
+
+                                                "Автомобиль найден, " +
+                                                    "но позиция пока " +
+                                                    "не передана сервером."
+                                            }
+                                    }
+
+
+                                    /* ========================
+                                       ВЫЗВАН
+                                       ======================== */
+
+                                    VehicleState.CALLED -> {
+
+                                        message =
+                                            "Автомобиль вызван " +
+                                                "в пункт пропуска."
+
+                                        position = null
+
+                                        estimatedMinutes = null
+
+                                        speed = null
+                                    }
+
+
+                                    /* ========================
+                                       НЕОПРЕДЕЛЁННО
+                                       ======================== */
+
+                                    VehicleState.UNKNOWN -> {
+
+                                        message =
+                                            "Автомобиль обнаружен, " +
+                                                "но его состояние " +
+                                                "пока не определено."
+                                    }
                                 }
 
-
-                                VehicleState.CALLED -> {
-
-                                    state =
-                                        VehicleState.CALLED
-
-                                    position = null
-
-                                    estimatedMinutes = null
-
-                                    speed = null
-
-                                    message =
-                                        "Автомобиль вызван " +
-                                            "в пункт пропуска."
-                                }
-
-
-                                VehicleState.UNKNOWN -> {
-
-                                    state =
-                                        VehicleState.UNKNOWN
-
-                                    message =
-                                        "Автомобиль обнаружен, " +
-                                            "но его состояние " +
-                                            "пока не определено."
-                                }
-                            }
-
-
-                        } else {
-
-                            /*
-                             * Автомобиль отсутствует
-                             * в текущем снимке.
-                             *
-                             * ВАЖНО:
-                             *
-                             * это НЕ означает вызов.
-                             */
-
-                            if (!vehicleWasConfirmed) {
-
-                                /*
-                                 * Первый запуск.
-                                 */
-
-                                state = null
-
-                                message =
-                                    "Автомобиль пока не обнаружен. " +
-                                        "Ожидаем следующее обновление."
 
                             } else {
 
-                                /*
-                                 * Автомобиль раньше был найден,
-                                 * но сейчас временно отсутствует.
-                                 *
-                                 * Состояние и последнюю позицию
-                                 * сохраняем.
-                                 */
+                                /* =================================
+                                   АВТОМОБИЛЬ ВРЕМЕННО ОТСУТСТВУЕТ
+                                   ================================= */
 
-                                message =
-                                    "Данные по автомобилю " +
-                                        "временно отсутствуют. " +
-                                        "Последняя подтверждённая " +
-                                        "позиция сохраняется."
+                                if (!vehicleWasConfirmed) {
+
+                                    state = null
+
+                                    message =
+                                        "Автомобиль пока не обнаружен. " +
+                                            "Ожидаем следующее обновление."
+
+                                } else {
+
+                                    /*
+                                     * Очень важно:
+                                     *
+                                     * отсутствие автомобиля
+                                     * в одном JSON НЕ означает вызов.
+                                     *
+                                     * Последняя позиция сохраняется.
+                                     */
+
+                                    message =
+                                        "Данные по автомобилю " +
+                                            "временно отсутствуют. " +
+                                            "Последняя подтверждённая " +
+                                            "позиция сохраняется."
+                                }
                             }
+
+                        } catch (e: Exception) {
+
+                            message =
+                                "Ошибка обработки данных: " +
+                                    (
+                                        e.message
+                                            ?: "неизвестная ошибка"
+                                    )
                         }
                     },
 
@@ -797,8 +699,8 @@ private fun TrackingScreen(
                     onFailure = { error ->
 
                         /*
-                         * Ошибка сети НЕ считается
-                         * изменением состояния автомобиля.
+                         * Ошибка сети не изменяет
+                         * состояние автомобиля.
                          */
 
                         message =
@@ -812,10 +714,6 @@ private fun TrackingScreen(
 
             } catch (e: Exception) {
 
-                /*
-                 * Защита от неожиданной ошибки.
-                 */
-
                 message =
                     "Ошибка мониторинга: " +
                         (
@@ -825,9 +723,7 @@ private fun TrackingScreen(
             }
 
 
-            /*
-             * Следующее обновление через 60 секунд.
-             */
+            /* ---------- Следующий запрос ---------- */
 
             delay(60_000)
         }
@@ -835,39 +731,73 @@ private fun TrackingScreen(
 
 
     /* ========================================================
-       ИНТЕРФЕЙС
+       ИНТЕРФЕЙС ЭКРАНА ОТСЛЕЖИВАНИЯ
        ======================================================== */
 
     Column(
 
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(
+                rememberScrollState()
+            )
+            .padding(24.dp),
 
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-
-        verticalArrangement =
-            Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
+
 
         Text(
             text = "Отслеживание",
-            style =
-                MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineMedium
         )
 
+
         Spacer(
-            modifier =
-                Modifier.height(20.dp)
+            modifier = Modifier.height(24.dp)
         )
 
 
         Text(
-            text = "Автомобиль: $carNumber"
+            text = "Пункт пропуска"
         )
 
+
         Spacer(
-            modifier =
-          
+            modifier = Modifier.height(4.dp)
+        )
+
+
+        Text(
+            text = checkpointName,
+            style = MaterialTheme.typography.titleLarge
+        )
+
+
+        Spacer(
+            modifier = Modifier.height(20.dp)
+        )
+
+
+        Text(
+            text = "Автомобиль"
+        )
+
+
+        Spacer(
+            modifier = Modifier.height(4.dp)
+        )
+
+
+        Text(
+            text = carNumber,
+            style = MaterialTheme.typography.titleLarge
+        )
+
+
+        Spacer(
+            modi
