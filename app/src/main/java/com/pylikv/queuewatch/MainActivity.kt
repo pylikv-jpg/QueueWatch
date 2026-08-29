@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -29,8 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -68,6 +69,30 @@ fun QueueWatchApp() {
         mutableStateOf(false)
     }
 
+    /*
+     * Настройки оповещений.
+     */
+
+    var positionAlertEnabled by rememberSaveable {
+        mutableStateOf(true)
+    }
+
+    var positionAlertThreshold by rememberSaveable {
+        mutableStateOf("100")
+    }
+
+    var forecastAlertEnabled by rememberSaveable {
+        mutableStateOf(true)
+    }
+
+    var forecastAlertMinutes by rememberSaveable {
+        mutableStateOf("30")
+    }
+
+    var calledAlertEnabled by rememberSaveable {
+        mutableStateOf(true)
+    }
+
 
     MaterialTheme {
 
@@ -91,6 +116,41 @@ fun QueueWatchApp() {
                         checkpoint = it
                     },
 
+                    positionAlertEnabled =
+                        positionAlertEnabled,
+
+                    onPositionAlertEnabledChange = {
+                        positionAlertEnabled = it
+                    },
+
+                    positionAlertThreshold =
+                        positionAlertThreshold,
+
+                    onPositionAlertThresholdChange = {
+                        positionAlertThreshold = it
+                    },
+
+                    forecastAlertEnabled =
+                        forecastAlertEnabled,
+
+                    onForecastAlertEnabledChange = {
+                        forecastAlertEnabled = it
+                    },
+
+                    forecastAlertMinutes =
+                        forecastAlertMinutes,
+
+                    onForecastAlertMinutesChange = {
+                        forecastAlertMinutes = it
+                    },
+
+                    calledAlertEnabled =
+                        calledAlertEnabled,
+
+                    onCalledAlertEnabledChange = {
+                        calledAlertEnabled = it
+                    },
+
                     onStartTracking = {
                         trackingStarted = true
                     }
@@ -100,7 +160,24 @@ fun QueueWatchApp() {
 
                 TrackingScreen(
                     carNumber = carNumber,
-                    checkpointName = checkpoint
+                    checkpointName = checkpoint,
+
+                    positionAlertEnabled =
+                        positionAlertEnabled,
+
+                    positionAlertThreshold =
+                        positionAlertThreshold.toIntOrNull()
+                            ?: 100,
+
+                    forecastAlertEnabled =
+                        forecastAlertEnabled,
+
+                    forecastAlertMinutes =
+                        forecastAlertMinutes.toIntOrNull()
+                            ?: 30,
+
+                    calledAlertEnabled =
+                        calledAlertEnabled
                 )
             }
         }
@@ -117,15 +194,31 @@ fun QueueWatchApp() {
 private fun SetupScreen(
     carNumber: String,
     onCarNumberChange: (String) -> Unit,
+
     checkpoint: String,
     onCheckpointSelected: (String) -> Unit,
+
+    positionAlertEnabled: Boolean,
+    onPositionAlertEnabledChange: (Boolean) -> Unit,
+
+    positionAlertThreshold: String,
+    onPositionAlertThresholdChange: (String) -> Unit,
+
+    forecastAlertEnabled: Boolean,
+    onForecastAlertEnabledChange: (Boolean) -> Unit,
+
+    forecastAlertMinutes: String,
+    onForecastAlertMinutesChange: (String) -> Unit,
+
+    calledAlertEnabled: Boolean,
+    onCalledAlertEnabledChange: (Boolean) -> Unit,
+
     onStartTracking: () -> Unit
 ) {
 
     var expanded by remember {
         mutableStateOf(false)
     }
-
 
     val checkpoints = listOf(
         "Бенякони",
@@ -136,7 +229,6 @@ private fun SetupScreen(
         "Каменный Лог",
         "Козловичи"
     )
-
 
     val canStart =
         carNumber.isNotBlank() &&
@@ -162,20 +254,17 @@ private fun SetupScreen(
             style = MaterialTheme.typography.headlineLarge
         )
 
-
         Spacer(
             modifier = Modifier.height(12.dp)
         )
-
 
         Text(
             text = "Мониторинг электронной очереди",
             style = MaterialTheme.typography.bodyLarge
         )
 
-
         Spacer(
-            modifier = Modifier.height(32.dp)
+            modifier = Modifier.height(24.dp)
         )
 
 
@@ -205,12 +294,12 @@ private fun SetupScreen(
 
 
         Spacer(
-            modifier = Modifier.height(20.dp)
+            modifier = Modifier.height(16.dp)
         )
 
 
         /* ----------------------------------------------------
-           ВЫБОР ПУНКТА ПРОПУСКА
+           ВЫБОР КПП
            ---------------------------------------------------- */
 
         ExposedDropdownMenuBox(
@@ -276,12 +365,180 @@ private fun SetupScreen(
 
 
         Spacer(
-            modifier = Modifier.height(32.dp)
+            modifier = Modifier.height(20.dp)
+        )
+
+
+        /* ====================================================
+           НАСТРОЙКИ ОПОВЕЩЕНИЙ
+           ==================================================== */
+
+        Text(
+            text = "Оповещения",
+            style = MaterialTheme.typography.titleLarge
+        )
+
+        Spacer(
+            modifier = Modifier.height(12.dp)
         )
 
 
         /* ----------------------------------------------------
-           НАЧАЛО ОТСЛЕЖИВАНИЯ
+           ПОЗИЦИЯ
+           ---------------------------------------------------- */
+
+        Button(
+            onClick = {
+                onPositionAlertEnabledChange(
+                    !positionAlertEnabled
+                )
+            },
+
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Text(
+                text =
+                    if (positionAlertEnabled) {
+                        "✓ Оповещать по позиции"
+                    } else {
+                        "Оповещение по позиции выключено"
+                    }
+            )
+        }
+
+
+        if (positionAlertEnabled) {
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            OutlinedTextField(
+                value = positionAlertThreshold,
+
+                onValueChange = {
+                    onPositionAlertThresholdChange(
+                        it.filter { char ->
+                            char.isDigit()
+                        }
+                    )
+                },
+
+                label = {
+                    Text("Позиция: или меньше")
+                },
+
+                placeholder = {
+                    Text("100")
+                },
+
+                singleLine = true,
+
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+
+        Spacer(
+            modifier = Modifier.height(12.dp)
+        )
+
+
+        /* ----------------------------------------------------
+           ПРЕДУПРЕЖДЕНИЕ ДО ВЫЗОВА
+           ---------------------------------------------------- */
+
+        Button(
+            onClick = {
+                onForecastAlertEnabledChange(
+                    !forecastAlertEnabled
+                )
+            },
+
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Text(
+                text =
+                    if (forecastAlertEnabled) {
+                        "✓ Предупреждать до вызова"
+                    } else {
+                        "Предупреждение до вызова выключено"
+                    }
+            )
+        }
+
+
+        if (forecastAlertEnabled) {
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            OutlinedTextField(
+                value = forecastAlertMinutes,
+
+                onValueChange = {
+                    onForecastAlertMinutesChange(
+                        it.filter { char ->
+                            char.isDigit()
+                        }
+                    )
+                },
+
+                label = {
+                    Text("Предупредить за минут")
+                },
+
+                placeholder = {
+                    Text("30")
+                },
+
+                singleLine = true,
+
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+
+        Spacer(
+            modifier = Modifier.height(12.dp)
+        )
+
+
+        /* ----------------------------------------------------
+           ФАКТИЧЕСКИЙ ВЫЗОВ
+           ---------------------------------------------------- */
+
+        Button(
+            onClick = {
+                onCalledAlertEnabledChange(
+                    !calledAlertEnabled
+                )
+            },
+
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Text(
+                text =
+                    if (calledAlertEnabled) {
+                        "✓ Оповещать о вызове"
+                    } else {
+                        "Оповещение о вызове выключено"
+                    }
+            )
+        }
+
+
+        Spacer(
+            modifier = Modifier.height(20.dp)
+        )
+
+
+        /* ----------------------------------------------------
+           НАЧАЛО
            ---------------------------------------------------- */
 
         Button(
@@ -309,7 +566,15 @@ private fun SetupScreen(
 @Composable
 private fun TrackingScreen(
     carNumber: String,
-    checkpointName: String
+    checkpointName: String,
+
+    positionAlertEnabled: Boolean,
+    positionAlertThreshold: Int,
+
+    forecastAlertEnabled: Boolean,
+    forecastAlertMinutes: Int,
+
+    calledAlertEnabled: Boolean
 ) {
 
     val context =
@@ -321,14 +586,35 @@ private fun TrackingScreen(
     }
 
 
-    /*
-     * Analyzer получает Context,
-     * потому что статистика скорости
-     * сохраняется на телефоне.
-     */
-
     val analyzer = remember {
         QueueAnalyzer(context)
+    }
+
+
+    /*
+     * Менеджер оповещений.
+     *
+     * Он живёт весь текущий сеанс
+     * отслеживания.
+     */
+
+    val alertManager = remember {
+        QueueAlertManager(context)
+    }
+
+
+    /*
+     * Освобождаем TextToSpeech
+     * при уничтожении экрана.
+     */
+
+    androidx.compose.runtime.DisposableEffect(
+        Unit
+    ) {
+
+        onDispose {
+            alertManager.release()
+        }
     }
 
 
@@ -374,6 +660,11 @@ private fun TrackingScreen(
     }
 
 
+    var previousPosition by remember {
+        mutableStateOf<Int?>(null)
+    }
+
+
     var vehicleState by remember {
         mutableStateOf<VehicleState?>(null)
     }
@@ -409,31 +700,50 @@ private fun TrackingScreen(
     }
 
 
-    /* ========================================================
-       МОНИТОРИНГ
-       ======================================================== */
+    /*
+     * Однократность событий.
+     */
+
+    var positionAlertTriggered by remember {
+        mutableStateOf(false)
+    }
+
+    var forecastAlertTriggered by remember {
+        mutableStateOf(false)
+    }
+
+    var calledAlertTriggered by remember {
+        mutableStateOf(false)
+    }
+
+
+    /*
+     * Если пользователь уже подтвердил
+     * позиционное оповещение, оно больше
+     * не запускается в этом сеансе.
+     */
 
     LaunchedEffect(
         carNumber,
         checkpointName
     ) {
 
-        /*
-         * Очищаем только текущую историю.
-         *
-         * Накопленная статистика 7×24
-         * НЕ удаляется.
-         */
-
         analyzer.reset()
 
+        alertManager.reset()
+
         position = null
+        previousPosition = null
         vehicleState = null
         queueCount = null
         lastUpdate = ""
         speed = null
         forecastMinutes = null
         vehicleWasConfirmed = false
+
+        positionAlertTriggered = false
+        forecastAlertTriggered = false
+        calledAlertTriggered = false
 
 
         if (carNumber.isBlank()) {
@@ -475,10 +785,6 @@ private fun TrackingScreen(
 
                         try {
 
-                            /*
-                             * Обрабатываем полный снимок очереди.
-                             */
-
                             val vehicles =
                                 analyzer.processSnapshot(
                                     json = json,
@@ -487,12 +793,6 @@ private fun TrackingScreen(
                                         checkpointName
                                 )
 
-
-                            /*
-                             * Количество автомобилей,
-                             * находящихся в текущем
-                             * полученном снимке очереди.
-                             */
 
                             queueCount =
                                 vehicles.size
@@ -506,10 +806,6 @@ private fun TrackingScreen(
                                     Date()
                                 )
 
-
-                            /*
-                             * Ищем конкретный автомобиль.
-                             */
 
                             val vehicle =
                                 analyzer.findVehicle(
@@ -538,13 +834,70 @@ private fun TrackingScreen(
 
                                     VehicleState.IN_QUEUE -> {
 
-                                        position =
+                                        val newPosition =
                                             vehicle.position
 
 
                                         /*
-                                         * Новый адаптивный прогноз.
+                                         * Проверяем переход
+                                         * через заданный порог.
+                                         *
+                                         * Например:
+                                         *
+                                         * 105 -> 95
+                                         *
+                                         * считается достижением
+                                         * позиции 100 или меньше.
                                          */
+
+                                        if (
+                                            positionAlertEnabled &&
+                                            !positionAlertTriggered &&
+                                            newPosition != null
+                                        ) {
+
+                                            val crossedThreshold =
+                                                if (
+                                                    previousPosition == null
+                                                ) {
+
+                                                    newPosition <=
+                                                        positionAlertThreshold
+
+                                                } else {
+
+                                                    previousPosition!! >
+                                                        positionAlertThreshold &&
+                                                        newPosition <=
+                                                        positionAlertThreshold
+                                                }
+
+
+                                            if (
+                                                crossedThreshold
+                                            ) {
+
+                                                positionAlertTriggered =
+                                                    true
+
+                                                alertManager.trigger(
+                                                    AlertType.POSITION,
+
+                                                    "Автомобиль достиг позиции " +
+                                                        "$positionAlertThreshold " +
+                                                        "или меньше."
+                                                )
+                                            }
+                                        }
+
+
+                                        previousPosition =
+                                            newPosition
+
+
+                                        position =
+                                            newPosition
+
 
                                         val forecast =
                                             analyzer.calculateForecast(
@@ -565,9 +918,44 @@ private fun TrackingScreen(
                                             forecast?.estimatedMinutes
 
 
+                                        /*
+                                         * Предупреждение по прогнозу.
+                                         *
+                                         * Срабатывает один раз,
+                                         * когда прогноз впервые
+                                         * становится <= заданного
+                                         * времени.
+                                         */
+
+                                        if (
+                                            forecastAlertEnabled &&
+                                            !forecastAlertTriggered &&
+                                            forecastMinutes != null &&
+                                            forecastMinutes!! <=
+                                                forecastAlertMinutes
+                                        ) {
+
+                                            forecastAlertTriggered =
+                                                true
+
+                                            val roundedMinutes =
+                                                forecastMinutes!!
+                                                    .toInt()
+                                                    .coerceAtLeast(0)
+
+                                            alertManager.trigger(
+                                                AlertType.FORECAST,
+
+                                                "До вызова автомобиля " +
+                                                    "ориентировочно " +
+                                                    "$roundedMinutes минут."
+                                            )
+                                        }
+
+
                                         message =
                                             if (
-                                                vehicle.position != null
+                                                newPosition != null
                                             ) {
 
                                                 "Автомобиль находится " +
@@ -583,14 +971,32 @@ private fun TrackingScreen(
 
                                     VehicleState.CALLED -> {
 
-                                        /*
-                                         * Только подтверждённый
-                                         * сервером вызов.
-                                         */
-
                                         message =
                                             "Автомобиль вызван " +
                                                 "в пункт пропуска."
+
+
+                                        /*
+                                         * Фактический вызов.
+                                         *
+                                         * Только status == 3.
+                                         */
+
+                                        if (
+                                            calledAlertEnabled &&
+                                            !calledAlertTriggered
+                                        ) {
+
+                                            calledAlertTriggered =
+                                                true
+
+                                            alertManager.trigger(
+                                                AlertType.CALLED,
+
+                                                "Автомобиль вызван " +
+                                                    "в пункт пропуска."
+                                            )
+                                        }
 
 
                                         position = null
@@ -614,10 +1020,10 @@ private fun TrackingScreen(
                             } else {
 
                                 /*
-                                 * Автомобиль отсутствует
-                                 * в текущем JSON.
+                                 * Автомобиль отсутствует.
                                  *
-                                 * Это НЕ считается вызовом.
+                                 * Никакого вызова здесь
+                                 * не генерируем.
                                  */
 
                                 if (!vehicleWasConfirmed) {
@@ -629,11 +1035,6 @@ private fun TrackingScreen(
                                             "Ожидаем следующее обновление."
 
                                 } else {
-
-                                    /*
-                                     * Сохраняем последнее
-                                     * подтверждённое состояние.
-                                     */
 
                                     message =
                                         "Данные автомобиля временно " +
@@ -657,11 +1058,6 @@ private fun TrackingScreen(
 
                     onFailure = { error ->
 
-                        /*
-                         * Ошибка сети не меняет
-                         * состояние автомобиля.
-                         */
-
                         message =
                             "Ошибка получения данных: " +
                                 (
@@ -682,17 +1078,13 @@ private fun TrackingScreen(
             }
 
 
-            /*
-             * Обновление каждые 20 секунд.
-             */
-
             delay(20_000)
         }
     }
 
 
     /* ========================================================
-       ИНТЕРФЕЙС ОТСЛЕЖИВАНИЯ
+       ИНТЕРФЕЙС
        ======================================================== */
 
     Column(
@@ -827,11 +1219,6 @@ private fun TrackingScreen(
         )
 
 
-        /*
-         * Количество автомобилей
-         * непосредственно в текущей очереди.
-         */
-
         Text(
             text =
                 "Автомобилей в очереди: " +
@@ -858,10 +1245,6 @@ private fun TrackingScreen(
         )
 
 
-        /*
-         * Скорость движения очереди.
-         */
-
         if (speed != null) {
 
             Spacer(
@@ -877,10 +1260,6 @@ private fun TrackingScreen(
             )
         }
 
-
-        /*
-         * Прогноз времени до вызова.
-         */
 
         if (forecastMinutes != null) {
 
@@ -917,5 +1296,61 @@ private fun TrackingScreen(
                     }
             )
         }
+    }
+
+
+    /*
+     * Всплывающее окно активного оповещения.
+     *
+     * Оно остаётся открытым,
+     * пока пользователь не подтвердит
+     * сообщение.
+     */
+
+    val activeAlert =
+        alertManager.activeAlert
+
+
+    if (activeAlert != null) {
+
+        AlertDialog(
+
+            onDismissRequest = {
+                /*
+                 * Нельзя закрыть окно
+                 * простым нажатием снаружи.
+                 *
+                 * Требуется подтверждение.
+                 */
+            },
+
+            title = {
+
+                Text(
+                    text = activeAlert.title
+                )
+            },
+
+            text = {
+
+                Text(
+                    text = activeAlert.message
+                )
+            },
+
+            confirmButton = {
+
+                Button(
+                    onClick = {
+                        alertManager.acknowledge()
+                    }
+                ) {
+
+                    Text(
+                        text = "ПОДТВЕРДИТЬ"
+                    )
+                }
+            }
+        )
     }
 }
