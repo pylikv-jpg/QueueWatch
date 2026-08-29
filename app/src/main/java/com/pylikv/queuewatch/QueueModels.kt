@@ -2,200 +2,145 @@ package com.pylikv.queuewatch
 
 /**
  * Тип транспортного средства.
- *
- * Соответствует отдельным очередям,
- * которые сервер API возвращает для КПП.
  */
 enum class VehicleType {
-
-    /** Легковой автомобиль */
     CAR,
-
-    /** Грузовой автомобиль */
     TRUCK,
-
-    /** Автобус */
     BUS,
-
-    /** Мотоцикл */
     MOTORCYCLE
 }
 
 
 /**
- * Одна запись транспортного средства,
- * полученная непосредственно из ответа сервера.
- *
- * Здесь ничего не вычисляем и ничего
- * самостоятельно не присваиваем.
- *
- * Значения являются копией данных API.
+ * Одна запись транспортного средства
+ * непосредственно из API.
  */
 data class QueueVehicle(
-
-    /**
-     * Регистрационный номер
-     * из поля regnum.
-     */
     val regnum: String,
-
-    /**
-     * Серверный статус из поля status.
-     */
     val status: Int?,
-
-    /**
-     * Серверный order_id.
-     *
-     * Для транспортного средства в живой очереди
-     * это его текущая позиция.
-     */
     val orderId: Int?,
-
-    /**
-     * Серверный тип очереди.
-     */
     val typeQueue: Int?,
-
-    /**
-     * Дата регистрации записи.
-     */
     val registrationDate: String?,
-
-    /**
-     * Дата изменения записи.
-     */
     val changedDate: String?,
-
-    /**
-     * Тип транспортного средства.
-     *
-     * Это значение определяется при разборе
-     * конкретного массива API:
-     *
-     * carLiveQueue       -> CAR
-     * truckLiveQueue     -> TRUCK
-     * busLiveQueue       -> BUS
-     * motorcycleLiveQueue -> MOTORCYCLE
-     */
     val vehicleType: VehicleType = VehicleType.CAR
 ) {
-
-    /**
-     * Позиция транспортного средства.
-     *
-     * Это НЕ самостоятельно рассчитанное значение.
-     *
-     * Если сервер передал order_id,
-     * используем именно его.
-     */
     val position: Int?
         get() = orderId
 }
 
 
 /**
- * Состояние транспортного средства
- * после анализа серверной записи.
- *
- * Это не данные, придуманные интерфейсом.
- * Состояние определяется QueueAnalyzer
- * на основании фактических полей API.
+ * Состояние автомобиля.
  */
 enum class VehicleState {
-
-    /**
-     * Сервер передал order_id.
-     *
-     * Транспортное средство находится
-     * в живой очереди.
-     */
     IN_QUEUE,
-
-    /**
-     * Сервер явно сообщил status == 3.
-     *
-     * Это подтверждённый вызов.
-     */
     CALLED,
-
-    /**
-     * Транспортное средство присутствует
-     * в данных, но по имеющимся серверным
-     * полям состояние нельзя однозначно определить.
-     */
     UNKNOWN
 }
 
 
 /**
  * Историческая точка наблюдения.
- *
- * Позиция здесь всегда является
- * фактически полученной от сервера.
  */
 data class QueueHistoryPoint(
-
-    /**
-     * Время получения снимка.
-     */
     val timestampMillis: Long,
-
-    /**
-     * Позиция, полученная из order_id.
-     */
     val position: Int?,
-
-    /**
-     * Состояние, определённое
-     * QueueAnalyzer по данным сервера.
-     */
     val state: VehicleState
 )
 
 
 /**
- * Скорость движения очереди.
+ * Скорость прохождения очереди.
+ *
+ * positionsPerHour:
+ * фактическое количество автомобилей,
+ * прошедших через очередь за час.
  */
 data class QueueSpeed(
-
-    /**
-     * Позиции в час.
-     */
     val positionsPerHour: Double,
-
-    /**
-     * Среднее количество минут
-     * на одну позицию.
-     */
     val minutesPerPosition: Double
 )
 
 
 /**
- * Прогноз для транспортного средства.
+ * Прогноз автомобиля.
  */
 data class QueueForecast(
-
-    /**
-     * Последняя подтверждённая
-     * сервером позиция.
-     */
     val currentPosition: Int?,
-
-    /**
-     * Количество позиций впереди.
-     */
     val positionsAhead: Int?,
-
-    /**
-     * Рассчитанная скорость очереди.
-     */
     val speed: QueueSpeed?,
+    val estimatedMinutes: Double?
+)
+
+
+/**
+ * Одна статистическая ячейка.
+ *
+ * 7 дней недели × 24 часа.
+ */
+data class QueueStatisticsCell(
+    val dayOfWeek: Int,
+    val hour: Int,
 
     /**
-     * Расчётное время до вызова
-     * в минутах.
+     * Сколько подтверждённых вызовов
+     * накоплено в этом часовом интервале.
      */
-    val estimatedMinutes: Double?
+    val calledCount: Int = 0,
+
+    /**
+     * Количество наблюдений,
+     * при которых этот час был реально
+     * проверен программой.
+     */
+    val observedCount: Int = 0,
+
+    /**
+     * Суммарное время ожидания автомобилей,
+     * у которых удалось определить
+     * регистрацию и вызов.
+     */
+    val totalWaitingMinutes: Double = 0.0,
+
+    /**
+     * Количество автомобилей,
+     * для которых известно время ожидания.
+     */
+    waitingSamples: Int = 0
+) {
+
+    /**
+     * Среднее количество вызванных автомобилей
+     * за наблюдаемый час.
+     */
+    val callsPerObservedHour: Double
+        get() =
+            if (observedCount > 0) {
+                calledCount.toDouble() / observedCount
+            } else {
+                0.0
+            }
+
+    /**
+     * Среднее фактическое время ожидания.
+     */
+    val averageWaitingMinutes: Double?
+        get() =
+            if (waitingSamples > 0) {
+                totalWaitingMinutes / waitingSamples
+            } else {
+                null
+            }
+}
+
+
+/**
+ * Результат расчёта скорости
+ * с учётом конкретного часового интервала.
+ */
+data class HourlySpeed(
+    val dayOfWeek: Int,
+    val hour: Int,
+    val positionsPerHour: Double,
+    val observed: Boolean
 )
