@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -24,8 +26,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -47,10 +51,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun QueueWatchApp() {
 
-    var started by rememberSaveable {
-        mutableStateOf(false)
-    }
-
     var carNumber by rememberSaveable {
         mutableStateOf("")
     }
@@ -59,6 +59,11 @@ fun QueueWatchApp() {
         mutableStateOf("")
     }
 
+    var trackingStarted by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+
     MaterialTheme {
 
         Surface(
@@ -66,23 +71,23 @@ fun QueueWatchApp() {
             color = MaterialTheme.colorScheme.background
         ) {
 
-            if (!started) {
-
-                StartScreen(
-                    onStart = {
-                        started = true
-                    }
-                )
-
-            } else if (checkpoint.isEmpty()) {
+            if (!trackingStarted) {
 
                 SetupScreen(
                     carNumber = carNumber,
+
                     onCarNumberChange = {
                         carNumber = it
                     },
+
+                    checkpoint = checkpoint,
+
                     onCheckpointSelected = {
                         checkpoint = it
+                    },
+
+                    onStartTracking = {
+                        trackingStarted = true
                     }
                 )
 
@@ -99,54 +104,6 @@ fun QueueWatchApp() {
 
 
 /* ============================================================
-   СТАРТОВЫЙ ЭКРАН
-   ============================================================ */
-
-@Composable
-private fun StartScreen(
-    onStart: () -> Unit
-) {
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-
-        horizontalAlignment = Alignment.CenterHorizontally,
-
-        verticalArrangement = Arrangement.Center
-    ) {
-
-        Text(
-            text = "QueueWatch",
-            style = MaterialTheme.typography.headlineLarge
-        )
-
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
-
-        Text(
-            text = "Мониторинг электронной очереди"
-        )
-
-        Spacer(
-            modifier = Modifier.height(24.dp)
-        )
-
-        Button(
-            onClick = onStart
-        ) {
-
-            Text(
-                text = "Начать отслеживание"
-            )
-        }
-    }
-}
-
-
-/* ============================================================
    ЭКРАН НАСТРОЙКИ
    ============================================================ */
 
@@ -154,27 +111,71 @@ private fun StartScreen(
 private fun SetupScreen(
     carNumber: String,
     onCarNumberChange: (String) -> Unit,
-    onCheckpointSelected: (String) -> Unit
+    checkpoint: String,
+    onCheckpointSelected: (String) -> Unit,
+    onStartTracking: () -> Unit
 ) {
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+
+    val checkpoints = listOf(
+        "Бенякони",
+        "Берестовица",
+        "Брест",
+        "Брузги",
+        "Григоровщина",
+        "Каменный Лог",
+        "Козловичи"
+    )
+
+
+    val canStart =
+        carNumber.isNotBlank() &&
+            checkpoint.isNotBlank()
+
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(24.dp)
+            .imePadding()
+            .navigationBarsPadding(),
 
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment =
+            Alignment.CenterHorizontally,
 
-        verticalArrangement = Arrangement.Center
+        verticalArrangement =
+            Arrangement.Center
     ) {
 
         Text(
-            text = "Настройка отслеживания",
-            style = MaterialTheme.typography.headlineMedium
+            text = "QueueWatch",
+            style = MaterialTheme.typography.headlineLarge
         )
 
+
         Spacer(
-            modifier = Modifier.height(24.dp)
+            modifier = Modifier.height(12.dp)
         )
+
+
+        Text(
+            text = "Мониторинг электронной очереди",
+            style = MaterialTheme.typography.bodyLarge
+        )
+
+
+        Spacer(
+            modifier = Modifier.height(32.dp)
+        )
+
+
+        /*
+         * Номер автомобиля.
+         */
 
         OutlinedTextField(
             value = carNumber,
@@ -184,7 +185,11 @@ private fun SetupScreen(
             },
 
             label = {
-                Text("Номер автомобиля")
+                Text("Введите номер")
+            },
+
+            placeholder = {
+                Text("Например: 1234AB7")
             },
 
             singleLine = true,
@@ -192,80 +197,103 @@ private fun SetupScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(
-            modifier = Modifier.height(24.dp)
-        )
-
-        Text(
-            text = "Выберите пункт пропуска",
-            style = MaterialTheme.typography.titleLarge
-        )
 
         Spacer(
-            modifier = Modifier.height(16.dp)
+            modifier = Modifier.height(20.dp)
         )
 
-        CheckpointButton(
-            name = "Бенякони",
-            onClick = onCheckpointSelected
+
+        /*
+         * Выбор пункта пропуска.
+         */
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+
+            onExpandedChange = {
+                expanded = !expanded
+            },
+
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            OutlinedTextField(
+                value = checkpoint,
+
+                onValueChange = {},
+
+                readOnly = true,
+
+                label = {
+                    Text("Выберите пункт пропуска")
+                },
+
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(
+                        expanded = expanded
+                    )
+                },
+
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+
+                onDismissRequest = {
+                    expanded = false
+                }
+            ) {
+
+                checkpoints.forEach { name ->
+
+                    androidx.compose.material3.DropdownMenuItem(
+
+                        text = {
+                            Text(name)
+                        },
+
+                        onClick = {
+
+                            onCheckpointSelected(name)
+
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+
+        Spacer(
+            modifier = Modifier.height(32.dp)
         )
 
-        CheckpointButton(
-            name = "Берестовица",
-            onClick = onCheckpointSelected
-        )
 
-        CheckpointButton(
-            name = "Брест",
-            onClick = onCheckpointSelected
-        )
+        /*
+         * Начало отслеживания.
+         *
+         * Кнопка недоступна, пока
+         * не введён номер и не выбран КПП.
+         */
 
-        CheckpointButton(
-            name = "Брузги",
-            onClick = onCheckpointSelected
-        )
+        Button(
+            onClick = onStartTracking,
 
-        CheckpointButton(
-            name = "Григоровщина",
-            onClick = onCheckpointSelected
-        )
+            enabled = canStart,
 
-        CheckpointButton(
-            name = "Каменный Лог",
-            onClick = onCheckpointSelected
-        )
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
 
-        CheckpointButton(
-            name = "Козловичи",
-            onClick = onCheckpointSelected
-        )
-    }
-}
-
-
-/* ============================================================
-   КНОПКА КПП
-   ============================================================ */
-
-@Composable
-private fun CheckpointButton(
-    name: String,
-    onClick: (String) -> Unit
-) {
-
-    Button(
-        onClick = {
-            onClick(name)
-        },
-
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    ) {
-
-        Text(
-            text = name
-        )
+            Text(
+                text = "Начать отслеживание"
+            )
+        }
     }
 }
 
@@ -291,9 +319,10 @@ private fun TrackingScreen(
 
     /*
      * Analyzer получает Context,
-     * потому что статистика сохраняется
-     * на телефоне.
+     * потому что статистика скорости
+     * сохраняется на телефоне.
      */
+
     val analyzer = remember {
         QueueAnalyzer(context)
     }
@@ -388,9 +417,10 @@ private fun TrackingScreen(
         /*
          * Очищаем только текущую историю.
          *
-         * Сохранённая статистика 7×24
+         * Накопленная статистика 7×24
          * НЕ удаляется.
          */
+
         analyzer.reset()
 
         position = null
@@ -442,14 +472,13 @@ private fun TrackingScreen(
                         try {
 
                             /*
-                             * Передаём название КПП,
-                             * чтобы статистика разных КПП
-                             * не смешивалась.
+                             * Обрабатываем полный снимок очереди.
                              */
 
                             val vehicles =
                                 analyzer.processSnapshot(
                                     json = json,
+
                                     checkpointName =
                                         checkpointName
                                 )
@@ -457,9 +486,10 @@ private fun TrackingScreen(
 
                             /*
                              * Количество автомобилей,
-                             * присутствующих в текущем
-                             * снимке очереди.
+                             * находящихся в текущем
+                             * полученном снимке очереди.
                              */
+
                             queueCount =
                                 vehicles.size
 
@@ -504,11 +534,6 @@ private fun TrackingScreen(
 
                                     VehicleState.IN_QUEUE -> {
 
-                                        /*
-                                         * Реальная позиция
-                                         * из order_id.
-                                         */
-
                                         position =
                                             vehicle.position
 
@@ -519,6 +544,7 @@ private fun TrackingScreen(
 
                                         val forecast =
                                             analyzer.calculateForecast(
+
                                                 regnum =
                                                     vehicle.regnum,
 
@@ -553,15 +579,10 @@ private fun TrackingScreen(
 
                                     VehicleState.CALLED -> {
 
-                                        /*
-                                         * Только status == 3
-                                         * считается подтверждённым
-                                         * вызовом.
-                                         */
-
                                         message =
                                             "Автомобиль вызван " +
                                                 "в пункт пропуска."
+
 
                                         position = null
 
@@ -657,7 +678,7 @@ private fun TrackingScreen(
 
 
     /* ========================================================
-       ИНТЕРФЕЙС
+       ИНТЕРФЕЙС ОТСЛЕЖИВАНИЯ
        ======================================================== */
 
     Column(
@@ -665,15 +686,18 @@ private fun TrackingScreen(
             .fillMaxSize()
             .padding(24.dp),
 
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment =
+            Alignment.CenterHorizontally,
 
-        verticalArrangement = Arrangement.Center
+        verticalArrangement =
+            Arrangement.Center
     ) {
 
         Text(
             text = "Отслеживание",
             style = MaterialTheme.typography.headlineMedium
         )
+
 
         Spacer(
             modifier = Modifier.height(20.dp)
@@ -709,9 +733,11 @@ private fun TrackingScreen(
                     style = MaterialTheme.typography.titleLarge
                 )
 
+
                 Spacer(
                     modifier = Modifier.height(12.dp)
                 )
+
 
                 Text(
                     text =
@@ -722,9 +748,11 @@ private fun TrackingScreen(
                             )
                 )
 
+
                 Spacer(
                     modifier = Modifier.height(8.dp)
                 )
+
 
                 Text(
                     text = "Статус: живая очередь"
@@ -739,9 +767,11 @@ private fun TrackingScreen(
                     style = MaterialTheme.typography.titleLarge
                 )
 
+
                 Spacer(
                     modifier = Modifier.height(8.dp)
                 )
+
 
                 Text(
                     text = "Вызов подтверждён сервером."
@@ -785,11 +815,9 @@ private fun TrackingScreen(
 
         /*
          * Количество автомобилей,
-         * которые сейчас находятся
-         * в полученном снимке очереди.
-         *
-         * Меняем только название.
+         * находящихся в текущем снимке очереди.
          */
+
         Text(
             text =
                 "Автомобилей в очереди: " +
@@ -822,6 +850,7 @@ private fun TrackingScreen(
                 modifier = Modifier.height(12.dp)
             )
 
+
             Text(
                 text = String.format(
                     Locale.getDefault(),
@@ -838,13 +867,16 @@ private fun TrackingScreen(
                 modifier = Modifier.height(12.dp)
             )
 
+
             val totalMinutes =
                 forecastMinutes!!
                     .coerceAtLeast(0.0)
 
+
             val hours =
                 (totalMinutes / 60.0)
                     .toInt()
+
 
             val minutes =
                 (totalMinutes % 60.0)
