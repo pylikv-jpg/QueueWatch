@@ -205,9 +205,7 @@ private fun SetupScreen(
         )
 
         /*
-         * Сейчас подключены только подтверждённые КПП.
-         *
-         * Бенякони — уже проверенный рабочий вариант.
+         * Подключённые и подтверждённые КПП.
          */
 
         CheckpointButton(
@@ -222,6 +220,11 @@ private fun SetupScreen(
 
         CheckpointButton(
             name = "Брест",
+            onClick = onCheckpointSelected
+        )
+
+        CheckpointButton(
+            name = "Брузги",
             onClick = onCheckpointSelected
         )
 
@@ -291,11 +294,6 @@ private fun TrackingScreen(
 
     /*
      * Реальные checkpointId, полученные из API.
-     *
-     * Бенякони — существующий рабочий ID.
-     *
-     * Остальные пять ID подтверждены
-     * полученными нами JSON-ответами API.
      */
 
     val checkpointId = when (checkpointName) {
@@ -308,6 +306,9 @@ private fun TrackingScreen(
 
         "Брест" ->
             "a9173a85-3fc0-424c-84f0-defa632481e4"
+
+        "Брузги" ->
+            "3b797d4d-706a-440f-a1a4-826c191e1e36"
 
         "Григоровщина" ->
             "ffe81c11-00d6-11e8-a967-b0dd44bde851"
