@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -204,10 +205,6 @@ private fun SetupScreen(
             modifier = Modifier.height(16.dp)
         )
 
-        /*
-         * Подключённые и подтверждённые КПП.
-         */
-
         CheckpointButton(
             name = "Бенякони",
             onClick = onCheckpointSelected
@@ -283,17 +280,27 @@ private fun TrackingScreen(
     checkpointName: String
 ) {
 
+    val context =
+        LocalContext.current
+
+
     val api = remember {
         QueueApi()
     }
 
+
+    /*
+     * Analyzer теперь получает Context,
+     * потому что статистика скорости
+     * сохраняется в памяти телефона.
+     */
     val analyzer = remember {
-        QueueAnalyzer()
+        QueueAnalyzer(context)
     }
 
 
     /*
-     * Реальные checkpointId, полученные из API.
+     * Реальные checkpointId API.
      */
 
     val checkpointId = when (checkpointName) {
@@ -360,10 +367,8 @@ private fun TrackingScreen(
 
 
     /*
-     * Этот флаг нужен для правильной обработки
-     * временного исчезновения автомобиля.
-     *
-     * Исчезновение из JSON НЕ считается вызовом.
+     * Исчезновение автомобиля из JSON
+     * не считается вызовом.
      */
 
     var vehicleWasConfirmed by remember {
@@ -380,6 +385,11 @@ private fun TrackingScreen(
         checkpointName
     ) {
 
+        /*
+         * Очищаем только текущую историю наблюдения.
+         *
+         * Сохранённая статистика 7×24 НЕ удаляется.
+         */
         analyzer.reset()
 
         position = null
@@ -431,17 +441,16 @@ private fun TrackingScreen(
                         try {
 
                             /*
-                             * Разбираем полный ответ API.
-                             *
-                             * QueueAnalyzer самостоятельно
-                             * обрабатывает truckLiveQueue,
-                             * carLiveQueue, busLiveQueue
-                             * и motorcycleLiveQueue.
+                             * Передаём название КПП,
+                             * чтобы статистика разных КПП
+                             * не смешивалась.
                              */
 
                             val vehicles =
                                 analyzer.processSnapshot(
-                                    json
+                                    json = json,
+                                    checkpointName =
+                                        checkpointName
                                 )
 
 
@@ -459,8 +468,7 @@ private fun TrackingScreen(
 
 
                             /*
-                             * Ищем конкретный автомобиль
-                             * по регистрационному номеру.
+                             * Ищем конкретный автомобиль.
                              */
 
                             val vehicle =
@@ -472,7 +480,8 @@ private fun TrackingScreen(
 
                             if (vehicle != null) {
 
-                                vehicleWasConfirmed = true
+                                vehicleWasConfirmed =
+                                    true
 
 
                                 val detectedState =
@@ -490,8 +499,8 @@ private fun TrackingScreen(
                                     VehicleState.IN_QUEUE -> {
 
                                         /*
-                                         * Используем реальный
-                                         * order_id из API.
+                                         * Реальная позиция
+                                         * из order_id.
                                          */
 
                                         position =
@@ -499,13 +508,25 @@ private fun TrackingScreen(
 
 
                                         /*
-                                         * После первого наблюдения
-                                         * прогноза может ещё не быть.
+                                         * Новый адаптивный прогноз.
+                                         *
+                                         * Он учитывает:
+                                         * КПП;
+                                         * тип транспорта;
+                                         * день недели;
+                                         * час;
+                                         * накопленную скорость;
+                                         * часы с нулевой пропускной
+                                         * способностью.
                                          */
 
                                         val forecast =
                                             analyzer.calculateForecast(
-                                                vehicle.regnum
+                                                regnum =
+                                                    vehicle.regnum,
+
+                                                checkpointName =
+                                                    checkpointName
                                             )
 
 
@@ -566,9 +587,10 @@ private fun TrackingScreen(
                             } else {
 
                                 /*
-                                 * Машины нет в текущем JSON.
+                                 * Автомобиль отсутствует
+                                 * в текущем JSON.
                                  *
-                                 * Это НЕ означает вызов.
+                                 * Это НЕ считается вызовом.
                                  */
 
                                 if (!vehicleWasConfirmed) {
@@ -580,11 +602,6 @@ private fun TrackingScreen(
                                             "Ожидаем следующее обновление."
 
                                 } else {
-
-                                    /*
-                                     * Сохраняем последнее известное
-                                     * состояние и позицию.
-                                     */
 
                                     message =
                                         "Данные автомобиля временно " +
@@ -814,13 +831,34 @@ private fun TrackingScreen(
         if (forecastMinutes != null) {
 
             Spacer(
-                modifier = Modifier.height(8.dp)
+                modifier = Modifier.height(12.dp)
             )
+
+            val totalMinutes =
+                forecastMinutes!!
+                    .coerceAtLeast(0.0)
+
+            val hours =
+                (totalMinutes / 60.0)
+                    .toInt()
+
+            val minutes =
+                (totalMinutes % 60.0)
+                    .toInt()
+
 
             Text(
                 text =
-                    "Ориентировочно до вызова: " +
-                        "${forecastMinutes!!.toInt()} мин."
+                    if (hours > 0) {
+
+                        "Ориентировочно до вызова: " +
+                            "$hours ч $minutes мин"
+
+                    } else {
+
+                        "Ориентировочно до вызова: " +
+                            "$minutes мин"
+                    }
             )
         }
     }
