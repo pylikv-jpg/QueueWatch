@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
@@ -26,8 +27,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import kotlinx.coroutines.delay
@@ -47,6 +48,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
+/* ============================================================
+   ГЛАВНОЕ ПРИЛОЖЕНИЕ
+   ============================================================ */
 
 @Composable
 fun QueueWatchApp() {
@@ -107,6 +112,7 @@ fun QueueWatchApp() {
    ЭКРАН НАСТРОЙКИ
    ============================================================ */
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SetupScreen(
     carNumber: String,
@@ -173,9 +179,9 @@ private fun SetupScreen(
         )
 
 
-        /*
-         * Номер автомобиля.
-         */
+        /* ----------------------------------------------------
+           НОМЕР АВТОМОБИЛЯ
+           ---------------------------------------------------- */
 
         OutlinedTextField(
             value = carNumber,
@@ -203,9 +209,9 @@ private fun SetupScreen(
         )
 
 
-        /*
-         * Выбор пункта пропуска.
-         */
+        /* ----------------------------------------------------
+           ВЫБОР ПУНКТА ПРОПУСКА
+           ---------------------------------------------------- */
 
         ExposedDropdownMenuBox(
             expanded = expanded,
@@ -229,6 +235,7 @@ private fun SetupScreen(
                 },
 
                 trailingIcon = {
+
                     ExposedDropdownMenuDefaults.TrailingIcon(
                         expanded = expanded
                     )
@@ -273,12 +280,9 @@ private fun SetupScreen(
         )
 
 
-        /*
-         * Начало отслеживания.
-         *
-         * Кнопка недоступна, пока
-         * не введён номер и не выбран КПП.
-         */
+        /* ----------------------------------------------------
+           НАЧАЛО ОТСЛЕЖИВАНИЯ
+           ---------------------------------------------------- */
 
         Button(
             onClick = onStartTracking,
@@ -579,6 +583,11 @@ private fun TrackingScreen(
 
                                     VehicleState.CALLED -> {
 
+                                        /*
+                                         * Только подтверждённый
+                                         * сервером вызов.
+                                         */
+
                                         message =
                                             "Автомобиль вызван " +
                                                 "в пункт пропуска."
@@ -620,6 +629,11 @@ private fun TrackingScreen(
                                             "Ожидаем следующее обновление."
 
                                 } else {
+
+                                    /*
+                                     * Сохраняем последнее
+                                     * подтверждённое состояние.
+                                     */
 
                                     message =
                                         "Данные автомобиля временно " +
@@ -814,8 +828,8 @@ private fun TrackingScreen(
 
 
         /*
-         * Количество автомобилей,
-         * находящихся в текущем снимке очереди.
+         * Количество автомобилей
+         * непосредственно в текущей очереди.
          */
 
         Text(
@@ -844,12 +858,15 @@ private fun TrackingScreen(
         )
 
 
+        /*
+         * Скорость движения очереди.
+         */
+
         if (speed != null) {
 
             Spacer(
                 modifier = Modifier.height(12.dp)
             )
-
 
             Text(
                 text = String.format(
@@ -861,6 +878,10 @@ private fun TrackingScreen(
         }
 
 
+        /*
+         * Прогноз времени до вызова.
+         */
+
         if (forecastMinutes != null) {
 
             Spacer(
@@ -870,17 +891,16 @@ private fun TrackingScreen(
 
             val totalMinutes =
                 forecastMinutes!!
-                    .coerceAtLeast(0.0)
+                    .toInt()
+                    .coerceAtLeast(0)
 
 
             val hours =
-                (totalMinutes / 60.0)
-                    .toInt()
+                totalMinutes / 60
 
 
             val minutes =
-                (totalMinutes % 60.0)
-                    .toInt()
+                totalMinutes % 60
 
 
             Text(
