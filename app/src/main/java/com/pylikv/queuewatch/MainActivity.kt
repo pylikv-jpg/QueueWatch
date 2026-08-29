@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -569,11 +570,25 @@ private fun TrackingScreen(
         LocalContext.current
 
 
+    /* --------------------------------------------------------
+       Состояние всплывающего предупреждения
+       -------------------------------------------------------- */
+
+    var alertVisible by remember {
+        mutableStateOf(false)
+    }
+
+    var alertTitle by remember {
+        mutableStateOf("Оповещение QueueWatch")
+    }
+
+    var alertMessage by remember {
+        mutableStateOf("")
+    }
+
+
     /*
      * Запускаем Foreground Service.
-     *
-     * После этого API опрашивается
-     * не Activity, а сервисом.
      */
 
     LaunchedEffect(
@@ -633,10 +648,6 @@ private fun TrackingScreen(
 
     /*
      * Читаем состояние сервиса.
-     *
-     * Это позволяет экрану обновляться,
-     * даже если сам API-цикл работает
-     * независимо от Activity.
      */
 
     val preferences =
@@ -678,6 +689,10 @@ private fun TrackingScreen(
     }
 
 
+    /*
+     * Следим за данными сервиса.
+     */
+
     LaunchedEffect(Unit) {
 
         while (true) {
@@ -693,6 +708,7 @@ private fun TrackingScreen(
                         QueueWatchService.KEY_POSITION,
                         0
                     )
+
                 } else {
                     null
                 }
@@ -716,6 +732,7 @@ private fun TrackingScreen(
                         QueueWatchService.KEY_QUEUE_COUNT,
                         0
                     )
+
                 } else {
                     null
                 }
@@ -769,8 +786,135 @@ private fun TrackingScreen(
                 ) ?: ""
 
 
+            /*
+             * Проверяем наличие нового события
+             * для всплывающего окна.
+             *
+             * Эти ключи будут заполняться
+             * QueueWatchService.
+             */
+
+            val serviceAlertActive =
+                preferences.getBoolean(
+                    QueueWatchService.KEY_ALERT_ACTIVE,
+                    false
+                )
+
+
+            val serviceAlertMessage =
+                preferences.getString(
+                    QueueWatchService.KEY_ALERT_MESSAGE,
+                    ""
+                ) ?: ""
+
+
+            val serviceAlertTitle =
+                preferences.getString(
+                    QueueWatchService.KEY_ALERT_TITLE,
+                    "Оповещение QueueWatch"
+                ) ?: "Оповещение QueueWatch"
+
+
+            if (
+                serviceAlertActive &&
+                serviceAlertMessage.isNotBlank()
+            ) {
+
+                alertTitle =
+                    serviceAlertTitle
+
+                alertMessage =
+                    serviceAlertMessage
+
+                alertVisible = true
+            }
+
+
             delay(1_000)
         }
+    }
+
+
+    /*
+     * Всплывающее окно подтверждения.
+     *
+     * Оно появляется поверх экрана
+     * отслеживания.
+     */
+
+    if (alertVisible) {
+
+        AlertDialog(
+
+            onDismissRequest = {
+                /*
+                 * Простое закрытие окна
+                 * НЕ подтверждает событие.
+                 *
+                 * Поэтому здесь ничего
+                 * не делаем.
+                 */
+            },
+
+            title = {
+                Text(
+                    text = alertTitle
+                )
+            },
+
+            text = {
+                Text(
+                    text = alertMessage
+                )
+            },
+
+            confirmButton = {
+
+                Button(
+
+                    onClick = {
+
+                        /*
+                         * Передаём подтверждение
+                         * сервису.
+                         */
+
+                        val acknowledgeIntent =
+                            Intent(
+                                context,
+                                QueueWatchService::class.java
+                            ).apply {
+
+                                action =
+                                    QueueWatchService.ACTION_ACKNOWLEDGE_ALERT
+                            }
+
+
+                        try {
+
+                            context.startService(
+                                acknowledgeIntent
+                            )
+
+                        } catch (_: Exception) {
+                        }
+
+
+                        /*
+                         * Скрываем окно
+                         * на экране.
+                         */
+
+                        alertVisible = false
+                    }
+                ) {
+
+                    Text(
+                        text = "ПОДТВЕРДИТЬ"
+                    )
+                }
+            }
+        )
     }
 
 
