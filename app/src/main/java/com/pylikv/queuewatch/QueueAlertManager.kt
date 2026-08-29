@@ -37,11 +37,41 @@ data class QueueAlert(
  * Менеджер фоновых звуковых и голосовых
  * оповещений.
  *
+ * Для каждого отдельного события:
+ *
+ * 1. Первое оповещение сразу.
+ * 2. Повтор через 60 секунд.
+ * 3. Максимум 5 оповещений.
+ * 4. Подтверждение пользователя
+ *    прекращает оповещения раньше.
+ * 5. После пятого оповещения
+ *    событие автоматически завершается.
+ *
+ * Новый вызов trigger() после завершения
+ * предыдущего события начинает новый
+ * независимый цикл из 5 оповещений.
+ *
  * Работает независимо от Activity.
  */
 class QueueAlertManager(
     private val context: Context
 ) {
+
+    companion object {
+
+        /**
+         * Максимальное количество
+         * оповещений для одного события.
+         */
+        private const val MAX_ALERT_COUNT = 5
+
+        /**
+         * Интервал между повторными
+         * оповещениями.
+         */
+        private const val REPEAT_INTERVAL = 60_000L
+    }
+
 
     private val scope =
         CoroutineScope(
@@ -61,9 +91,30 @@ class QueueAlertManager(
         TextToSpeech? = null
 
 
+    /**
+     * Текущее активное событие.
+     *
+     * null означает, что активного
+     * неподтверждённого события нет.
+     */
     var activeAlert:
         QueueAlert? = null
         private set
+
+
+    /**
+     * Количество уже выполненных
+     * оповещений для текущего события.
+     *
+     * Диапазон:
+     *
+     * 0 — событие ещё не оповещалось
+     * 1 — первое оповещение выполнено
+     * ...
+     * 5 — лимит достигнут.
+     */
+    private var alertCount =
+        0
 
 
     init {
@@ -142,6 +193,11 @@ class QueueAlertManager(
         message: String
     ) {
 
+        /*
+         * Если уже существует активное
+         * неподтверждённое событие,
+         * новое событие не затираем.
+         */
         if (
             activeAlert != null
         ) {
@@ -163,6 +219,12 @@ class QueueAlertManager(
             }
 
 
+        /*
+         * Создаём новое событие.
+         *
+         * Счётчик обязательно начинается
+         * с нуля именно для нового события.
+         */
         activeAlert =
             QueueAlert(
 
@@ -174,30 +236,55 @@ class QueueAlertManager(
             )
 
 
-        /*
-         * Первое оповещение сразу.
-         */
+        alertCount = 0
 
+
+        /*
+         * На случай, если от предыдущего
+         * события осталась старая задача.
+         */
+        repeatJob?.cancel()
+
+        repeatJob = null
+
+
+        /*
+         * Первое оповещение выполняется
+         * сразу.
+         */
         playAlert(
             message
         )
 
+        alertCount = 1
+
 
         /*
-         * Повтор каждые 60 секунд
-         * до подтверждения.
+         * Если лимит уже достигнут
+         * (защита на будущее), событие
+         * завершаем.
          */
+        if (
+            alertCount >=
+                MAX_ALERT_COUNT
+        ) {
 
-        repeatJob?.cancel()
+            finishAlert()
+
+            return
+        }
 
 
+        /*
+         * Запускаем повторения.
+         */
         repeatJob =
             scope.launch {
 
                 while (isActive) {
 
                     delay(
-                        60_000
+                        REPEAT_INTERVAL
                     )
 
 
@@ -206,9 +293,46 @@ class QueueAlertManager(
                             ?: break
 
 
+                    /*
+                     * Если лимит уже достигнут,
+                     * прекращаем цикл.
+                     */
+                    if (
+                        alertCount >=
+                            MAX_ALERT_COUNT
+                    ) {
+
+                        finishAlert()
+
+                        break
+                    }
+
+
+                    /*
+                     * Следующее оповещение.
+                     */
                     playAlert(
                         alert.message
                     )
+
+
+                    alertCount++
+
+
+                    /*
+                     * После пятого оповещения
+                     * автоматически завершаем
+                     * событие.
+                     */
+                    if (
+                        alertCount >=
+                            MAX_ALERT_COUNT
+                    ) {
+
+                        finishAlert()
+
+                        break
+                    }
                 }
             }
     }
@@ -240,6 +364,18 @@ class QueueAlertManager(
             delay(
                 800
             )
+
+
+            /*
+             * Если событие уже завершено
+             * или подтверждено, голосовое
+             * сообщение не запускаем.
+             */
+            if (
+                activeAlert == null
+            ) {
+                return@launch
+            }
 
 
             speak(
@@ -281,19 +417,70 @@ class QueueAlertManager(
 
     fun acknowledge() {
 
+        /*
+         * Останавливаем повторения.
+         */
         repeatJob?.cancel()
 
         repeatJob = null
 
+
+        /*
+         * Удаляем активное событие.
+         */
         activeAlert = null
 
 
+        /*
+         * Сбрасываем счётчик.
+         *
+         * Следующее событие получит
+         * новый независимый лимит 5.
+         */
+        alertCount = 0
+
+
+        /*
+         * Останавливаем текущую речь.
+         */
         try {
 
             textToSpeech?.stop()
 
         } catch (_: Exception) {
         }
+    }
+
+
+    /* ========================================================
+       АВТОМАТИЧЕСКОЕ ЗАВЕРШЕНИЕ
+       ======================================================== */
+
+    private fun finishAlert() {
+
+        /*
+         * Останавливаем повторную задачу.
+         */
+        repeatJob?.cancel()
+
+        repeatJob = null
+
+
+        /*
+         * Событие больше не считается
+         * активным.
+         *
+         * Мониторинг автомобиля при этом
+         * НЕ останавливается.
+         */
+        activeAlert = null
+
+
+        /*
+         * Счётчик сбрасывается для
+         * следующего нового события.
+         */
+        alertCount = 0
     }
 
 
@@ -307,7 +494,11 @@ class QueueAlertManager(
 
         repeatJob = null
 
+
         activeAlert = null
+
+
+        alertCount = 0
 
 
         try {
@@ -353,6 +544,9 @@ class QueueAlertManager(
 
         toneGenerator = null
 
+
         activeAlert = null
+
+        alertCount = 0
     }
 }
