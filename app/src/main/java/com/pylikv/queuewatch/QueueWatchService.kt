@@ -51,6 +51,17 @@ class QueueWatchService : Service() {
             "called_alert_enabled"
 
 
+        /*
+         * Команда от интерфейса:
+         *
+         * пользователь нажал
+         * "ПОДТВЕРДИТЬ".
+         */
+
+        const val ACTION_ACKNOWLEDGE_ALERT =
+            "com.pylikv.queuewatch.ACKNOWLEDGE_ALERT"
+
+
         const val KEY_POSITION =
             "position"
 
@@ -71,6 +82,21 @@ class QueueWatchService : Service() {
 
         const val KEY_LAST_UPDATE =
             "last_update"
+
+
+        /*
+         * Состояние всплывающего
+         * предупреждения.
+         */
+
+        const val KEY_ALERT_ACTIVE =
+            "alert_active"
+
+        const val KEY_ALERT_TITLE =
+            "alert_title"
+
+        const val KEY_ALERT_MESSAGE =
+            "alert_message"
 
 
         private const val CHANNEL_ID =
@@ -105,11 +131,13 @@ class QueueWatchService : Service() {
 
 
     private var alertManager:
-        QueueAlertManager? = null
+        QueueAlertManager? =
+        null
 
 
     private var wakeLock:
-        PowerManager.WakeLock? = null
+        PowerManager.WakeLock? =
+        null
 
 
     private lateinit var preferences:
@@ -131,12 +159,6 @@ class QueueWatchService : Service() {
         createNotificationChannel()
 
 
-        /*
-         * Foreground Service обязан
-         * сразу показать постоянное
-         * уведомление.
-         */
-
         startForeground(
             NOTIFICATION_ID,
             createServiceNotification(
@@ -144,11 +166,6 @@ class QueueWatchService : Service() {
             )
         )
 
-
-        /*
-         * Не даём CPU полностью заснуть
-         * во время активного мониторинга.
-         */
 
         try {
 
@@ -183,6 +200,25 @@ class QueueWatchService : Service() {
         flags: Int,
         startId: Int
     ): Int {
+
+        /*
+         * Сначала обрабатываем команду
+         * подтверждения.
+         *
+         * Здесь не требуются номер машины
+         * и пункт пропуска.
+         */
+
+        if (
+            intent?.action ==
+                ACTION_ACKNOWLEDGE_ALERT
+        ) {
+
+            acknowledgeAlert()
+
+            return START_STICKY
+        }
+
 
         val carNumber =
             intent?.getStringExtra(
@@ -248,7 +284,8 @@ class QueueWatchService : Service() {
 
                     carNumber = carNumber,
 
-                    checkpointName = checkpoint,
+                    checkpointName =
+                        checkpoint,
 
                     positionAlertEnabled =
                         positionAlertEnabled,
@@ -299,14 +336,6 @@ class QueueWatchService : Service() {
             )
 
 
-        /*
-         * Сбрасываем только состояние
-         * текущего сеанса анализатора.
-         *
-         * Историческая статистика
-         * сохраняется.
-         */
-
         analyzer.reset()
 
 
@@ -318,35 +347,13 @@ class QueueWatchService : Service() {
             false
 
 
-        /*
-         * Событие пересечения позиции.
-         *
-         * true:
-         * текущий порог уже был достигнут
-         * и повторно тревожить до выхода
-         * из порога не нужно.
-         *
-         * false:
-         * можно сформировать новое событие.
-         */
-
         var positionAlertTriggered =
             false
 
 
-        /*
-         * Аналогичное состояние
-         * для временного прогноза.
-         */
-
         var forecastAlertTriggered =
             false
 
-
-        /*
-         * Фактический вызов автомобиля
-         * является одноразовым состоянием.
-         */
 
         var calledAlertTriggered =
             false
@@ -470,11 +477,6 @@ class QueueWatchService : Service() {
 
                     onFailure = {
 
-                        /*
-                         * Ошибка одного запроса
-                         * НЕ останавливает мониторинг.
-                         */
-
                         saveMessage(
                             "Ошибка получения данных. " +
                                 "Повторяем попытку..."
@@ -484,16 +486,26 @@ class QueueWatchService : Service() {
 
             } catch (_: Exception) {
 
-                /*
-                 * Любая ошибка обработки
-                 * также не должна завершать
-                 * основной цикл мониторинга.
-                 */
-
                 saveMessage(
                     "Временная ошибка. " +
                         "Мониторинг продолжается."
                 )
+            }
+
+
+            /*
+             * Если пяти предупреждений достаточно
+             * и QueueAlertManager автоматически
+             * завершил событие, очищаем флаг
+             * всплывающего окна.
+             */
+
+            if (
+                alertManager?.activeAlert ==
+                    null
+            ) {
+
+                clearAlertState()
             }
 
 
@@ -586,7 +598,7 @@ class QueueWatchService : Service() {
 
             /*
              * Временное отсутствие автомобиля
-             * НЕ означает вызов.
+             * НЕ является вызовом.
              */
 
             if (vehicle == null) {
@@ -629,7 +641,7 @@ class QueueWatchService : Service() {
             when (state) {
 
                 /* =================================================
-                   АВТОМОБИЛЬ В ЖИВОЙ ОЧЕРЕДИ
+                   ЖИВАЯ ОЧЕРЕДЬ
                    ================================================= */
 
                 VehicleState.IN_QUEUE -> {
@@ -645,31 +657,7 @@ class QueueWatchService : Service() {
 
 
                     /*
-                     * -------------------------------------------------
                      * ПОЗИЦИОННОЕ ОПОВЕЩЕНИЕ
-                     * -------------------------------------------------
-                     *
-                     * Событие возникает при пересечении порога
-                     * сверху вниз.
-                     *
-                     * Например:
-                     *
-                     * 105 -> 99
-                     *
-                     * при пороге 100.
-                     *
-                     * После окончания пяти предупреждений
-                     * positionAlertTriggered остаётся true.
-                     *
-                     * Чтобы получить НОВОЕ событие,
-                     * автомобиль должен сначала выйти
-                     * из порога:
-                     *
-                     * 99 -> 101
-                     *
-                     * а затем снова пересечь:
-                     *
-                     * 101 -> 99
                      */
 
                     if (
@@ -677,9 +665,10 @@ class QueueWatchService : Service() {
                     ) {
 
                         /*
-                         * Вышли обратно из порога.
+                         * Вышли обратно выше порога.
                          *
-                         * Это вооружает новое событие.
+                         * После этого разрешаем
+                         * следующее событие.
                          */
 
                         if (
@@ -745,9 +734,7 @@ class QueueWatchService : Service() {
 
 
                     /*
-                     * -------------------------------------------------
-                     * АДАПТИВНЫЙ ПРОГНОЗ
-                     * -------------------------------------------------
+                     * ПРОГНОЗ
                      */
 
                     val forecast =
@@ -795,26 +782,7 @@ class QueueWatchService : Service() {
 
 
                     /*
-                     * -------------------------------------------------
                      * ВРЕМЕННОЕ ОПОВЕЩЕНИЕ
-                     * -------------------------------------------------
-                     *
-                     * Например:
-                     *
-                     * установлен порог = 30 минут.
-                     *
-                     * 42 -> 31
-                     * ещё не тревожим.
-                     *
-                     * 31 -> 29
-                     * создаём событие.
-                     *
-                     * После пяти предупреждений
-                     * событие заканчивается.
-                     *
-                     * Если прогноз снова выйдет выше 30,
-                     * а потом снова войдёт в диапазон,
-                     * будет создано новое событие.
                      */
 
                     if (
@@ -822,9 +790,11 @@ class QueueWatchService : Service() {
                     ) {
 
                         /*
-                         * Прогноз вышел за порог.
+                         * Прогноз снова вышел
+                         * за предел порога.
                          *
-                         * Вооружаем новое событие.
+                         * Следующее попадание
+                         * создаст новое событие.
                          */
 
                         if (
@@ -909,12 +879,6 @@ class QueueWatchService : Service() {
                     )
 
 
-                    /*
-                     * Только подтверждённый
-                     * VehicleState.CALLED вызывает
-                     * это предупреждение.
-                     */
-
                     if (
                         calledAlertEnabled &&
                         !calledAlertTriggered
@@ -983,21 +947,65 @@ class QueueWatchService : Service() {
     ) {
 
         /*
-         * Если уже существует активное
-         * неподтверждённое событие,
-         * новое не создаём.
-         *
-         * QueueAlertManager самостоятельно
-         * ограничивает цикл пятью
-         * предупреждениями.
+         * Если уже идёт другое активное
+         * событие — новое не затираем.
          */
 
         if (
-            alertManager?.activeAlert != null
+            alertManager?.activeAlert !=
+                null
         ) {
+
             return
         }
 
+
+        val title =
+            when (type) {
+
+                AlertType.POSITION ->
+                    "Оповещение по очереди"
+
+                AlertType.FORECAST ->
+                    "Оповещение о приближении вызова"
+
+                AlertType.CALLED ->
+                    "ВНИМАНИЕ: ВЫЗОВ"
+            }
+
+
+        /*
+         * Сохраняем данные для Compose.
+         */
+
+        preferences
+            .edit()
+
+            .putBoolean(
+                KEY_ALERT_ACTIVE,
+                true
+            )
+
+            .putString(
+                KEY_ALERT_TITLE,
+                title
+            )
+
+            .putString(
+                KEY_ALERT_MESSAGE,
+                message
+            )
+
+            .apply()
+
+
+        /*
+         * Передаём событие менеджеру.
+         *
+         * Именно QueueAlertManager
+         * контролирует максимум 5
+         * звуковых/голосовых предупреждений.
+         */
 
         alertManager?.trigger(
             type,
@@ -1005,27 +1013,14 @@ class QueueWatchService : Service() {
         )
 
 
-        /*
-         * Первичное системное уведомление.
-         *
-         * Звуковой и голосовой цикл
-         * выполняется QueueAlertManager.
-         */
-
         showAlertNotification(
             message
         )
 
 
         /*
-         * Обновляем визуальное уведомление
-         * раз в минуту, пока событие активно.
-         *
-         * Это НЕ создаёт дополнительный
-         * звуковой цикл.
-         *
-         * Звуковые повторы ограничены
-         * QueueAlertManager пятью.
+         * Визуальное системное уведомление
+         * обновляем, пока событие активно.
          */
 
         alertNotificationJob?.cancel()
@@ -1045,6 +1040,9 @@ class QueueWatchService : Service() {
                         alertManager?.activeAlert ==
                             null
                     ) {
+
+                        clearAlertState()
+
                         break
                     }
 
@@ -1054,6 +1052,80 @@ class QueueWatchService : Service() {
                     )
                 }
             }
+    }
+
+
+    /* ========================================================
+       ПОДТВЕРЖДЕНИЕ ПОЛЬЗОВАТЕЛЕМ
+       ======================================================== */
+
+    private fun acknowledgeAlert() {
+
+        /*
+         * Самое главное:
+         *
+         * останавливаем QueueAlertManager.
+         *
+         * Это прекращает:
+         *
+         * - повторный звук;
+         * - голос;
+         * - следующий цикл.
+         */
+
+        alertManager?.acknowledge()
+
+
+        /*
+         * Останавливаем задачу обновления
+         * системного уведомления.
+         */
+
+        alertNotificationJob?.cancel()
+
+        alertNotificationJob = null
+
+
+        /*
+         * Убираем состояние всплывающего
+         * окна.
+         */
+
+        clearAlertState()
+
+
+        /*
+         * Мониторинг НЕ останавливаем.
+         *
+         * Service продолжает опрашивать API
+         * каждые 20 секунд.
+         */
+    }
+
+
+    /* ========================================================
+       ОЧИСТКА СОСТОЯНИЯ ОПОВЕЩЕНИЯ
+       ======================================================== */
+
+    private fun clearAlertState() {
+
+        preferences
+            .edit()
+
+            .putBoolean(
+                KEY_ALERT_ACTIVE,
+                false
+            )
+
+            .remove(
+                KEY_ALERT_TITLE
+            )
+
+            .remove(
+                KEY_ALERT_MESSAGE
+            )
+
+            .apply()
     }
 
 
@@ -1355,6 +1427,9 @@ class QueueWatchService : Service() {
         alertManager?.release()
 
         alertManager = null
+
+
+        clearAlertState()
 
 
         try {
