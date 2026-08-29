@@ -1,57 +1,68 @@
 package com.pylikv.queuewatch
 
+import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import kotlin.math.max
+import kotlin.math.min
+
 
 /**
  * Анализатор электронной очереди QueueWatch.
  *
- * Анализирует все типы транспорта,
- * которые возвращает API:
+ * Скорость очереди НЕ рассчитывается по скачку order_id
+ * конкретного автомобиля.
  *
- * - легковые автомобили
- * - грузовые автомобили
- * - автобусы
- * - мотоциклы
+ * Скорость формируется из подтверждённых вызовов
+ * автомобилей и сохраняется в статистике:
  *
- * Главный принцип:
- *
- * ВСЕ решения принимаются только на основании
- * фактических данных сервера.
- *
- * Временное исчезновение автомобиля из ответа
- * не считается автоматически вызовом.
+ * КПП + тип транспорта + день недели + час.
  */
-class QueueAnalyzer {
+class QueueAnalyzer(
+    context: Context
+) {
+
+    private val appContext =
+        context.applicationContext
+
+    private val preferences =
+        appContext.getSharedPreferences(
+            "queuewatch_statistics",
+            Context.MODE_PRIVATE
+        )
+
 
     /*
-     * История движения каждого автомобиля.
-     *
-     * Ключ:
-     * нормализованный регистрационный номер.
+     * История конкретных автомобилей.
      */
     private val history =
         mutableMapOf<String, MutableList<QueueHistoryPoint>>()
 
 
     /*
-     * Последняя запись каждого автомобиля,
-     * реально полученная от сервера.
+     * Последняя серверная запись автомобиля.
      */
     private val previousVehicles =
         mutableMapOf<String, QueueVehicle>()
 
 
-    /**
-     * Нормализация регистрационного номера.
+    /*
+     * Уже обработанные события вызова.
      *
-     * 773AGM03
-     * 773agm03
-     * 773 AGM03
-     * 773-AGM03
-     *
-     * считаются одним автомобилем.
+     * Нужно для того, чтобы одна машина,
+     * присутствующая со status=3 несколько раз,
+     * не была посчитана несколько раз.
+     */
+    private val processedCallEvents =
+        mutableSetOf<String>()
+
+
+    /*
+     * Нормализация номера.
      */
     private fun normalizeRegnum(
         value: String
@@ -66,17 +77,7 @@ class QueueAnalyzer {
 
 
     /**
-     * Разбор полного JSON ответа сервера.
-     *
-     * Анализируются ВСЕ массивы живой очереди:
-     *
-     * carLiveQueue
-     * truckLiveQueue
-     * busLiveQueue
-     * motorcycleLiveQueue
-     *
-     * Каждый элемент получает соответствующий
-     * VehicleType.
+     * Разбор полного JSON.
      */
     fun parseQueue(
         json: String
@@ -89,57 +90,38 @@ class QueueAnalyzer {
             mutableListOf<QueueVehicle>()
 
 
-        /*
-         * Легковые автомобили.
-         */
         parseQueueArray(
-            root = root,
-            arrayName = "carLiveQueue",
-            vehicleType = VehicleType.CAR,
-            result = result
+            root,
+            "carLiveQueue",
+            VehicleType.CAR,
+            result
         )
 
-
-        /*
-         * Грузовые автомобили.
-         */
         parseQueueArray(
-            root = root,
-            arrayName = "truckLiveQueue",
-            vehicleType = VehicleType.TRUCK,
-            result = result
+            root,
+            "truckLiveQueue",
+            VehicleType.TRUCK,
+            result
         )
 
-
-        /*
-         * Автобусы.
-         */
         parseQueueArray(
-            root = root,
-            arrayName = "busLiveQueue",
-            vehicleType = VehicleType.BUS,
-            result = result
+            root,
+            "busLiveQueue",
+            VehicleType.BUS,
+            result
         )
 
-
-        /*
-         * Мотоциклы.
-         */
         parseQueueArray(
-            root = root,
-            arrayName = "motorcycleLiveQueue",
-            vehicleType = VehicleType.MOTORCYCLE,
-            result = result
+            root,
+            "motorcycleLiveQueue",
+            VehicleType.MOTORCYCLE,
+            result
         )
-
 
         return result
     }
 
 
-    /**
-     * Разбор одного массива очереди.
-     */
     private fun parseQueueArray(
         root: JSONObject,
         arrayName: String,
@@ -152,9 +134,7 @@ class QueueAnalyzer {
                 ?: JSONArray()
 
 
-        for (
-            i in 0 until queue.length()
-        ) {
+        for (i in 0 until queue.length()) {
 
             val item =
                 queue.optJSONObject(i)
@@ -173,60 +153,39 @@ class QueueAnalyzer {
             }
 
 
-            val status =
-                readNullableInt(
-                    item,
-                    "status"
-                )
-
-
-            val orderId =
-                readNullableInt(
-                    item,
-                    "order_id"
-                )
-
-
-            val typeQueue =
-                readNullableInt(
-                    item,
-                    "type_queue"
-                )
-
-
-            val registrationDate =
-                readNullableString(
-                    item,
-                    "registration_date"
-                )
-
-
-            val changedDate =
-                readNullableString(
-                    item,
-                    "changed_date"
-                )
-
-
             result += QueueVehicle(
 
-                regnum =
-                    regnum,
+                regnum = regnum,
 
                 status =
-                    status,
+                    readNullableInt(
+                        item,
+                        "status"
+                    ),
 
                 orderId =
-                    orderId,
+                    readNullableInt(
+                        item,
+                        "order_id"
+                    ),
 
                 typeQueue =
-                    typeQueue,
+                    readNullableInt(
+                        item,
+                        "type_queue"
+                    ),
 
                 registrationDate =
-                    registrationDate,
+                    readNullableString(
+                        item,
+                        "registration_date"
+                    ),
 
                 changedDate =
-                    changedDate,
+                    readNullableString(
+                        item,
+                        "changed_date"
+                    ),
 
                 vehicleType =
                     vehicleType
@@ -235,9 +194,6 @@ class QueueAnalyzer {
     }
 
 
-    /**
-     * Безопасное чтение nullable Int.
-     */
     private fun readNullableInt(
         item: JSONObject,
         key: String
@@ -267,9 +223,6 @@ class QueueAnalyzer {
     }
 
 
-    /**
-     * Безопасное чтение nullable String.
-     */
     private fun readNullableString(
         item: JSONObject,
         key: String
@@ -293,8 +246,7 @@ class QueueAnalyzer {
 
 
     /**
-     * Поиск конкретного автомобиля
-     * во всех типах очередей.
+     * Поиск автомобиля.
      */
     fun findVehicle(
         json: String,
@@ -321,20 +273,9 @@ class QueueAnalyzer {
 
 
     /**
-     * Определение состояния автомобиля.
+     * Определение состояния.
      *
-     * ПОРЯДОК ПРОВЕРКИ ПРИНЦИПИАЛЬНО ВАЖЕН:
-     *
-     * 1. status == 3
-     *      подтверждённый вызов.
-     *
-     * 2. order_id != null
-     *      автомобиль находится в живой очереди.
-     *
-     * 3. остальное
-     *      состояние неизвестно.
-     *
-     * Таким образом status=3 имеет приоритет.
+     * status=3 всегда имеет приоритет.
      */
     fun determineState(
         vehicle: QueueVehicle
@@ -343,7 +284,6 @@ class QueueAnalyzer {
         if (
             vehicle.status == 3
         ) {
-
             return VehicleState.CALLED
         }
 
@@ -351,7 +291,6 @@ class QueueAnalyzer {
         if (
             vehicle.orderId != null
         ) {
-
             return VehicleState.IN_QUEUE
         }
 
@@ -361,16 +300,14 @@ class QueueAnalyzer {
 
 
     /**
-     * Обработка нового снимка очереди.
+     * Обработка нового снимка.
      *
-     * Анализируется вся очередь независимо
-     * от выбранного пользователем транспорта.
-     *
-     * Это позволяет собирать статистику
-     * движения очереди по каждому типу транспорта.
+     * Именно здесь формируется статистика
+     * фактически вызванных автомобилей.
      */
     fun processSnapshot(
         json: String,
+        checkpointName: String = "unknown",
         timestampMillis: Long =
             System.currentTimeMillis()
     ): List<QueueVehicle> {
@@ -379,9 +316,28 @@ class QueueAnalyzer {
             parseQueue(json)
 
 
-        for (
-            vehicle in vehicles
-        ) {
+        /*
+         * Количество автомобилей каждого типа
+         * в текущем снимке.
+         *
+         * Используется для фиксации того,
+         * что час действительно наблюдался.
+         */
+        val currentCounts =
+            mutableMapOf<VehicleType, Int>()
+
+
+        for (vehicle in vehicles) {
+
+            currentCounts[
+                vehicle.vehicleType
+            ] =
+                (
+                    currentCounts[
+                        vehicle.vehicleType
+                    ] ?: 0
+                ) + 1
+
 
             val normalizedRegnum =
                 normalizeRegnum(
@@ -395,9 +351,6 @@ class QueueAnalyzer {
                 )
 
 
-            /*
-             * Предыдущая запись автомобиля.
-             */
             val previous =
                 previousVehicles[
                     normalizedRegnum
@@ -405,23 +358,17 @@ class QueueAnalyzer {
 
 
             /*
-             * Если автомобиль находится
-             * в живой очереди и сервер сообщает
-             * реальную позицию — записываем её.
+             * История позиции сохраняется
+             * исключительно как история.
              *
-             * Временное отсутствие автомобиля
-             * из следующего JSON здесь ничего
-             * не меняет.
+             * Она БОЛЬШЕ НЕ используется
+             * для вычисления скорости.
              */
             if (
                 state ==
                     VehicleState.IN_QUEUE &&
                 vehicle.position != null
             ) {
-
-                val currentPosition =
-                    vehicle.position
-
 
                 val vehicleHistory =
                     history.getOrPut(
@@ -435,22 +382,10 @@ class QueueAnalyzer {
                     vehicleHistory.lastOrNull()
 
 
-                /*
-                 * Новую точку записываем только если:
-                 *
-                 * - это первое наблюдение;
-                 * - позиция действительно изменилась.
-                 *
-                 * Одинаковые позиции не засоряют историю.
-                 */
-                val shouldRecord =
-                    lastPoint == null ||
-                        lastPoint.position !=
-                            currentPosition
-
-
                 if (
-                    shouldRecord
+                    lastPoint == null ||
+                    lastPoint.position !=
+                        vehicle.position
                 ) {
 
                     vehicleHistory.add(
@@ -461,7 +396,7 @@ class QueueAnalyzer {
                                 timestampMillis,
 
                             position =
-                                currentPosition,
+                                vehicle.position,
 
                             state =
                                 VehicleState.IN_QUEUE
@@ -472,37 +407,39 @@ class QueueAnalyzer {
 
 
             /*
-             * Явный status=3.
-             *
-             * Это подтверждённый вызов.
-             *
-             * Сохраняем событие только один раз.
+             * Подтверждённый вызов.
              */
             if (
                 state ==
                     VehicleState.CALLED
             ) {
 
-                val vehicleHistory =
-                    history.getOrPut(
+                val eventKey =
+                    checkpointName +
+                        "|" +
+                        vehicle.vehicleType.name +
+                        "|" +
                         normalizedRegnum
-                    ) {
-                        mutableListOf()
-                    }
-
-
-                val lastPoint =
-                    vehicleHistory.lastOrNull()
-
-
-                val alreadyCalled =
-                    lastPoint?.state ==
-                        VehicleState.CALLED
 
 
                 if (
-                    !alreadyCalled
+                    !processedCallEvents.contains(
+                        eventKey
+                    )
                 ) {
+
+                    processedCallEvents.add(
+                        eventKey
+                    )
+
+
+                    val vehicleHistory =
+                        history.getOrPut(
+                            normalizedRegnum
+                        ) {
+                            mutableListOf()
+                        }
+
 
                     vehicleHistory.add(
 
@@ -518,13 +455,26 @@ class QueueAnalyzer {
                                 VehicleState.CALLED
                         )
                     )
+
+
+                    /*
+                     * Регистрируем фактический
+                     * вызов в статистике.
+                     */
+                    recordCalledVehicle(
+                        checkpointName =
+                            checkpointName,
+
+                        vehicle =
+                            vehicle,
+
+                        timestampMillis =
+                            timestampMillis
+                    )
                 }
             }
 
 
-            /*
-             * Сохраняем последнюю серверную запись.
-             */
             previousVehicles[
                 normalizedRegnum
             ] = vehicle
@@ -532,30 +482,755 @@ class QueueAnalyzer {
 
 
         /*
-         * ВАЖНО:
+         * Фиксируем наблюдение текущего часа.
          *
-         * Мы НЕ удаляем автомобили,
-         * которые временно исчезли из ответа.
-         *
-         * Поэтому исчезновение из JSON само по себе
-         * НЕ превращается в CALLED.
+         * Наличие snapshot означает,
+         * что этот час действительно наблюдался.
          */
+        val calendar =
+            Calendar.getInstance().apply {
+                timeInMillis =
+                    timestampMillis
+            }
+
+
+        val dayOfWeek =
+            calendar.get(Calendar.DAY_OF_WEEK)
+
+
+        val hour =
+            calendar.get(Calendar.HOUR_OF_DAY)
+
+
+        for (
+            vehicleType in
+            VehicleType.values()
+        ) {
+
+            val count =
+                currentCounts[
+                    vehicleType
+                ] ?: 0
+
+
+            markHourObserved(
+                checkpointName =
+                    checkpointName,
+
+                vehicleType =
+                    vehicleType,
+
+                dayOfWeek =
+                    dayOfWeek,
+
+                hour =
+                    hour,
+
+                queueCount =
+                    count
+            )
+        }
+
+
         return vehicles
     }
 
 
     /**
-     * Последняя серверная запись автомобиля.
+     * Запись фактически вызванного автомобиля.
      */
-    fun getPreviousVehicle(
-        regnum: String
-    ): QueueVehicle? {
+    private fun recordCalledVehicle(
+        checkpointName: String,
+        vehicle: QueueVehicle,
+        timestampMillis: Long
+    ) {
 
-        return previousVehicles[
-            normalizeRegnum(
-                regnum
+        val calendar =
+            Calendar.getInstance().apply {
+                timeInMillis =
+                    timestampMillis
+            }
+
+
+        val dayOfWeek =
+            calendar.get(Calendar.DAY_OF_WEEK)
+
+
+        val hour =
+            calendar.get(Calendar.HOUR_OF_DAY)
+
+
+        val key =
+            buildCellKey(
+                checkpointName,
+                vehicle.vehicleType,
+                dayOfWeek,
+                hour
             )
-        ]
+
+
+        val current =
+            loadCell(key)
+
+
+        /*
+         * Пытаемся определить фактическое
+         * время ожидания.
+         *
+         * ВАЖНО:
+         * changed_date здесь НЕ считаем
+         * временем вызова автоматически.
+         *
+         * Время вызова берём из момента,
+         * когда приложение впервые увидело
+         * подтверждённый status=3.
+         */
+        val waitingMinutes =
+            calculateWaitingMinutes(
+                vehicle.registrationDate,
+                timestampMillis
+            )
+
+
+        val updated =
+            current.copy(
+
+                calledCount =
+                    current.calledCount + 1,
+
+                waitingSamples =
+                    if (
+                        waitingMinutes != null
+                    ) {
+                        current.waitingSamples + 1
+                    } else {
+                        current.waitingSamples
+                    },
+
+                totalWaitingMinutes =
+                    current.totalWaitingMinutes +
+                        (
+                            waitingMinutes
+                                ?: 0.0
+                        )
+            )
+
+
+        saveCell(
+            key,
+            updated
+        )
+    }
+
+
+    /**
+     * Регистрация -> фактический момент,
+     * когда status=3 впервые был замечен.
+     */
+    private fun calculateWaitingMinutes(
+        registrationDate: String?,
+        callTimestampMillis: Long
+    ): Double? {
+
+        if (
+            registrationDate.isNullOrBlank()
+        ) {
+            return null
+        }
+
+
+        return try {
+
+            val formatter =
+                SimpleDateFormat(
+                    "HH:mm:ss dd.MM.yyyy",
+                    Locale.getDefault()
+                )
+
+
+            val registration =
+                formatter.parse(
+                    registrationDate
+                )
+                    ?: return null
+
+
+            val difference =
+                callTimestampMillis -
+                    registration.time
+
+
+            if (
+                difference <= 0
+            ) {
+                null
+            } else {
+                difference /
+                    60_000.0
+            }
+
+        } catch (
+            e: Exception
+        ) {
+
+            null
+        }
+    }
+
+
+    /**
+     * Отметка наблюдаемого часа.
+     */
+    private fun markHourObserved(
+        checkpointName: String,
+        vehicleType: VehicleType,
+        dayOfWeek: Int,
+        hour: Int,
+        queueCount: Int
+    ) {
+
+        val key =
+            buildCellKey(
+                checkpointName,
+                vehicleType,
+                dayOfWeek,
+                hour
+            )
+
+
+        val current =
+            loadCell(key)
+
+
+        /*
+         * Один вызов processSnapshot()
+         * не должен бесконечно увеличивать
+         * observedCount при каждом обновлении.
+         *
+         * Поэтому observedCount здесь означает
+         * количество отдельных запусков наблюдения
+         * в этом часу.
+         *
+         * Для 20-секундных запросов используем
+         * максимум одно наблюдение примерно
+         * раз в 5 минут.
+         */
+        val lastObservedKey =
+            "${key}_last_observed"
+
+
+        val now =
+            System.currentTimeMillis()
+
+
+        val previousTime =
+            preferences.getLong(
+                lastObservedKey,
+                0L
+            )
+
+
+        if (
+            now -
+                previousTime <
+                5 * 60 * 1000L
+        ) {
+            return
+        }
+
+
+        preferences.edit()
+            .putLong(
+                lastObservedKey,
+                now
+            )
+            .apply()
+
+
+        saveCell(
+
+            key,
+
+            current.copy(
+
+                observedCount =
+                    current.observedCount + 1
+            )
+        )
+    }
+
+
+    /**
+     * Получение статистики конкретной ячейки.
+     */
+    fun getStatistics(
+        checkpointName: String,
+        vehicleType: VehicleType,
+        dayOfWeek: Int,
+        hour: Int
+    ): QueueStatisticsCell {
+
+        return loadCell(
+            buildCellKey(
+                checkpointName,
+                vehicleType,
+                dayOfWeek,
+                hour
+            )
+        )
+    }
+
+
+    /**
+     * Средняя фактическая скорость
+     * по всей накопленной статистике
+     * данного КПП и типа транспорта.
+     */
+    private fun getGlobalSpeed(
+        checkpointName: String,
+        vehicleType: VehicleType
+    ): Double? {
+
+        var totalCalls =
+            0
+
+
+        var totalObservedHours =
+            0
+
+
+        for (
+            day in
+            Calendar.SUNDAY..Calendar.SATURDAY
+        ) {
+
+            for (
+                hour in
+                0..23
+            ) {
+
+                val cell =
+                    getStatistics(
+                        checkpointName,
+                        vehicleType,
+                        day,
+                        hour
+                    )
+
+
+                totalCalls +=
+                    cell.calledCount
+
+
+                totalObservedHours +=
+                    cell.observedCount
+            }
+        }
+
+
+        if (
+            totalObservedHours <= 0
+        ) {
+            return null
+        }
+
+
+        val speed =
+            totalCalls.toDouble() /
+                totalObservedHours
+
+
+        return if (
+            speed > 0
+        ) {
+            speed
+        } else {
+            /*
+             * Если наблюдаемые часы были,
+             * но машин не прошло,
+             * глобальная скорость действительно 0.
+             */
+            0.0
+        }
+    }
+
+
+    /**
+     * Скорость для конкретного часа.
+     *
+     * Если этот час уже наблюдался,
+     * его собственная статистика имеет приоритет.
+     *
+     * Если данных ещё нет —
+     * используем накопленную общую скорость.
+     */
+    private fun getSpeedForHour(
+        checkpointName: String,
+        vehicleType: VehicleType,
+        dayOfWeek: Int,
+        hour: Int
+    ): HourlySpeed {
+
+        val cell =
+            getStatistics(
+                checkpointName,
+                vehicleType,
+                dayOfWeek,
+                hour
+            )
+
+
+        if (
+            cell.observedCount > 0
+        ) {
+
+            return HourlySpeed(
+
+                dayOfWeek =
+                    dayOfWeek,
+
+                hour =
+                    hour,
+
+                positionsPerHour =
+                    cell.callsPerObservedHour,
+
+                observed =
+                    true
+            )
+        }
+
+
+        val global =
+            getGlobalSpeed(
+                checkpointName,
+                vehicleType
+            )
+
+
+        return HourlySpeed(
+
+            dayOfWeek =
+                dayOfWeek,
+
+            hour =
+                hour,
+
+            positionsPerHour =
+                global ?: 0.0,
+
+            observed =
+                false
+        )
+    }
+
+
+    /**
+     * Рассчитывает прогноз,
+     * проходя по часам вперёд.
+     *
+     * Поэтому час со скоростью 0
+     * автоматически добавляет время ожидания.
+     */
+    fun calculateForecast(
+        regnum: String,
+        checkpointName: String
+    ): QueueForecast? {
+
+        val vehicle =
+            previousVehicles[
+                normalizeRegnum(
+                    regnum
+                )
+            ]
+                ?: return null
+
+
+        if (
+            determineState(vehicle) !=
+                VehicleState.IN_QUEUE
+        ) {
+            return null
+        }
+
+
+        val currentPosition =
+            vehicle.position
+                ?: return null
+
+
+        val positionsAhead =
+            max(
+                0,
+                currentPosition - 1
+            )
+
+
+        if (
+            positionsAhead == 0
+        ) {
+
+            return QueueForecast(
+
+                currentPosition =
+                    currentPosition,
+
+                positionsAhead =
+                    0,
+
+                speed =
+                    null,
+
+                estimatedMinutes =
+                    0.0
+            )
+        }
+
+
+        val vehicleType =
+            vehicle.vehicleType
+
+
+        var remaining =
+            positionsAhead.toDouble()
+
+
+        var totalMinutes =
+            0.0
+
+
+        var cursor =
+            Calendar.getInstance()
+
+
+        /*
+         * Максимальная глубина расчёта —
+         * 14 суток, чтобы исключить бесконечный цикл.
+         */
+        var safety =
+            0
+
+
+        var firstSpeed: Double? =
+            null
+
+
+        while (
+            remaining > 0 &&
+            safety < 336
+        ) {
+
+            safety++
+
+
+            val dayOfWeek =
+                cursor.get(
+                    Calendar.DAY_OF_WEEK
+                )
+
+
+            val hour =
+                cursor.get(
+                    Calendar.HOUR_OF_DAY
+                )
+
+
+            val minute =
+                cursor.get(
+                    Calendar.MINUTE
+                )
+
+
+            val second =
+                cursor.get(
+                    Calendar.SECOND
+                )
+
+
+            val secondsPassed =
+                minute * 60 +
+                    second
+
+
+            val minutesLeftInHour =
+                (
+                    3600 -
+                        secondsPassed
+                ) / 60.0
+
+
+            val hourly =
+                getSpeedForHour(
+
+                    checkpointName =
+                        checkpointName,
+
+                    vehicleType =
+                        vehicleType,
+
+                    dayOfWeek =
+                        dayOfWeek,
+
+                    hour =
+                        hour
+                )
+
+
+            val speed =
+                hourly.positionsPerHour
+
+
+            if (
+                firstSpeed == null
+            ) {
+                firstSpeed = speed
+            }
+
+
+            /*
+             * Пересменка / остановка.
+             *
+             * В этом часу машины не проходят.
+             */
+            if (
+                speed <= 0.0
+            ) {
+
+                totalMinutes +=
+                    minutesLeftInHour
+
+                cursor.add(
+                    Calendar.HOUR_OF_DAY,
+                    1
+                )
+
+                cursor.set(
+                    Calendar.MINUTE,
+                    0
+                )
+
+                cursor.set(
+                    Calendar.SECOND,
+                    0
+                )
+
+                continue
+            }
+
+
+            val capacityThisHour =
+                speed *
+                    (
+                        minutesLeftInHour /
+                            60.0
+                    )
+
+
+            if (
+                remaining <=
+                    capacityThisHour
+            ) {
+
+                val neededMinutes =
+                    remaining /
+                        speed *
+                        60.0
+
+
+                totalMinutes +=
+                    neededMinutes
+
+
+                remaining = 0.0
+
+            } else {
+
+                remaining -=
+                    capacityThisHour
+
+
+                totalMinutes +=
+                    minutesLeftInHour
+
+
+                cursor.add(
+                    Calendar.HOUR_OF_DAY,
+                    1
+                )
+
+                cursor.set(
+                    Calendar.MINUTE,
+                    0
+                )
+
+                cursor.set(
+                    Calendar.SECOND,
+                    0
+                )
+            }
+        }
+
+
+        if (
+            remaining > 0
+        ) {
+            return null
+        }
+
+
+        val effectiveSpeed =
+            if (
+                firstSpeed != null &&
+                firstSpeed > 0
+            ) {
+                firstSpeed
+            } else {
+                null
+            }
+
+
+        val speed =
+            effectiveSpeed?.let {
+
+                QueueSpeed(
+
+                    positionsPerHour =
+                        it,
+
+                    minutesPerPosition =
+                        60.0 / it
+                )
+            }
+
+
+        return QueueForecast(
+
+            currentPosition =
+                currentPosition,
+
+            positionsAhead =
+                positionsAhead,
+
+            speed =
+                speed,
+
+            estimatedMinutes =
+                totalMinutes
+        )
+    }
+
+
+    /**
+     * Совместимость со старым кодом.
+     *
+     * Старый расчёт скорости по позициям
+     * намеренно отключён.
+     */
+    fun calculateVehicleSpeed(
+        regnum: String
+    ): QueueSpeed? {
+
+        return null
     }
 
 
@@ -576,242 +1251,144 @@ class QueueAnalyzer {
     }
 
 
-    /**
-     * Количество автомобилей,
-     * для которых накоплена история.
-     */
-    fun getTrackedVehicleCount(): Int {
+    fun getPreviousVehicle(
+        regnum: String
+    ): QueueVehicle? {
 
+        return previousVehicles[
+            normalizeRegnum(
+                regnum
+            )
+        ]
+    }
+
+
+    fun getTrackedVehicleCount(): Int {
         return history.size
     }
 
 
     /**
-     * Расчёт скорости движения очереди
-     * для конкретного автомобиля.
+     * Очищает только текущий сеанс.
      *
-     * Используются только реальные
-     * изменения позиции.
-     */
-    fun calculateVehicleSpeed(
-        regnum: String
-    ): QueueSpeed? {
-
-        val points =
-            history[
-                normalizeRegnum(
-                    regnum
-                )
-            ]
-                ?.filter {
-
-                    it.position != null &&
-                        it.state ==
-                        VehicleState.IN_QUEUE
-                }
-                ?: return null
-
-
-        if (
-            points.size < 2
-        ) {
-            return null
-        }
-
-
-        val first =
-            points.first()
-
-
-        val last =
-            points.last()
-
-
-        val firstPosition =
-            first.position
-                ?: return null
-
-
-        val lastPosition =
-            last.position
-                ?: return null
-
-
-        val elapsedMillis =
-            last.timestampMillis -
-                first.timestampMillis
-
-
-        if (
-            elapsedMillis <= 0
-        ) {
-            return null
-        }
-
-
-        /*
-         * Положительное значение означает,
-         * что автомобиль продвинулся вперёд.
-         */
-        val positionsPassed =
-            firstPosition -
-                lastPosition
-
-
-        if (
-            positionsPassed <= 0
-        ) {
-            return null
-        }
-
-
-        val hours =
-            elapsedMillis /
-                3_600_000.0
-
-
-        if (
-            hours <= 0
-        ) {
-            return null
-        }
-
-
-        val positionsPerHour =
-            positionsPassed /
-                hours
-
-
-        if (
-            positionsPerHour <= 0
-        ) {
-            return null
-        }
-
-
-        val minutesPerPosition =
-            60.0 /
-                positionsPerHour
-
-
-        return QueueSpeed(
-
-            positionsPerHour =
-                positionsPerHour,
-
-            minutesPerPosition =
-                minutesPerPosition
-        )
-    }
-
-
-    /**
-     * Расчёт прогноза для автомобиля.
-     *
-     * Если истории ещё недостаточно,
-     * возвращается текущая подтверждённая
-     * позиция без расчётного времени.
-     */
-    fun calculateForecast(
-        regnum: String
-    ): QueueForecast? {
-
-        val points =
-            history[
-                normalizeRegnum(
-                    regnum
-                )
-            ]
-                ?.filter {
-
-                    it.position != null &&
-                        it.state ==
-                        VehicleState.IN_QUEUE
-                }
-                ?: return null
-
-
-        if (
-            points.isEmpty()
-        ) {
-            return null
-        }
-
-
-        val currentPosition =
-            points.last().position
-                ?: return null
-
-
-        val positionsAhead =
-            max(
-                0,
-                currentPosition - 1
-            )
-
-
-        val speed =
-            calculateVehicleSpeed(
-                regnum
-            )
-
-
-        /*
-         * Истории пока недостаточно.
-         */
-        if (
-            speed == null
-        ) {
-
-            return QueueForecast(
-
-                currentPosition =
-                    currentPosition,
-
-                positionsAhead =
-                    positionsAhead,
-
-                speed =
-                    null,
-
-                estimatedMinutes =
-                    null
-            )
-        }
-
-
-        val estimatedMinutes =
-            positionsAhead *
-                speed.minutesPerPosition
-
-
-        return QueueForecast(
-
-            currentPosition =
-                currentPosition,
-
-            positionsAhead =
-                positionsAhead,
-
-            speed =
-                speed,
-
-            estimatedMinutes =
-                estimatedMinutes
-        )
-    }
-
-
-    /**
-     * Очистка текущей истории.
-     *
-     * Используется при начале нового
-     * независимого сеанса мониторинга.
+     * Недельная статистика НЕ удаляется.
      */
     fun reset() {
 
         history.clear()
 
         previousVehicles.clear()
+
+        processedCallEvents.clear()
+    }
+
+
+    /*
+     * ========================================================
+     * PERSISTENT STATISTICS
+     * ========================================================
+     */
+
+    private fun buildCellKey(
+        checkpointName: String,
+        vehicleType: VehicleType,
+        dayOfWeek: Int,
+        hour: Int
+    ): String {
+
+        return "cell|" +
+            checkpointName +
+            "|" +
+            vehicleType.name +
+            "|" +
+            dayOfWeek +
+            "|" +
+            hour
+    }
+
+
+    private fun loadCell(
+        key: String
+    ): QueueStatisticsCell {
+
+        return QueueStatisticsCell(
+
+            dayOfWeek =
+                preferences.getInt(
+                    "${key}_day",
+                    0
+                ),
+
+            hour =
+                preferences.getInt(
+                    "${key}_hour",
+                    0
+                ),
+
+            calledCount =
+                preferences.getInt(
+                    "${key}_calls",
+                    0
+                ),
+
+            observedCount =
+                preferences.getInt(
+                    "${key}_observed",
+                    0
+                ),
+
+            totalWaitingMinutes =
+                preferences.getFloat(
+                    "${key}_waiting",
+                    0f
+                ).toDouble(),
+
+            waitingSamples =
+                preferences.getInt(
+                    "${key}_waiting_samples",
+                    0
+                )
+        )
+    }
+
+
+    private fun saveCell(
+        key: String,
+        cell: QueueStatisticsCell
+    ) {
+
+        preferences.edit()
+
+            .putInt(
+                "${key}_day",
+                cell.dayOfWeek
+            )
+
+            .putInt(
+                "${key}_hour",
+                cell.hour
+            )
+
+            .putInt(
+                "${key}_calls",
+                cell.calledCount
+            )
+
+            .putInt(
+                "${key}_observed",
+                cell.observedCount
+            )
+
+            .putFloat(
+                "${key}_waiting",
+                cell.totalWaitingMinutes.toFloat()
+            )
+
+            .putInt(
+                "${key}_waiting_samples",
+                cell.waitingSamples
+            )
+
+            .apply()
     }
 }
