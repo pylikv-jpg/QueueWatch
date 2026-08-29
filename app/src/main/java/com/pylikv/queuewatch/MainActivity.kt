@@ -1,5 +1,6 @@
 package com.pylikv.queuewatch
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -33,9 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 
 class MainActivity : ComponentActivity() {
@@ -68,6 +65,7 @@ fun QueueWatchApp() {
     var trackingStarted by rememberSaveable {
         mutableStateOf(false)
     }
+
 
     /*
      * Настройки оповещений.
@@ -220,6 +218,7 @@ private fun SetupScreen(
         mutableStateOf(false)
     }
 
+
     val checkpoints = listOf(
         "Бенякони",
         "Берестовица",
@@ -229,6 +228,7 @@ private fun SetupScreen(
         "Каменный Лог",
         "Козловичи"
     )
+
 
     val canStart =
         carNumber.isNotBlank() &&
@@ -254,23 +254,22 @@ private fun SetupScreen(
             style = MaterialTheme.typography.headlineLarge
         )
 
+
         Spacer(
             modifier = Modifier.height(12.dp)
         )
+
 
         Text(
             text = "Мониторинг электронной очереди",
             style = MaterialTheme.typography.bodyLarge
         )
 
+
         Spacer(
             modifier = Modifier.height(24.dp)
         )
 
-
-        /* ----------------------------------------------------
-           НОМЕР АВТОМОБИЛЯ
-           ---------------------------------------------------- */
 
         OutlinedTextField(
             value = carNumber,
@@ -297,10 +296,6 @@ private fun SetupScreen(
             modifier = Modifier.height(16.dp)
         )
 
-
-        /* ----------------------------------------------------
-           ВЫБОР КПП
-           ---------------------------------------------------- */
 
         ExposedDropdownMenuBox(
             expanded = expanded,
@@ -369,14 +364,11 @@ private fun SetupScreen(
         )
 
 
-        /* ====================================================
-           НАСТРОЙКИ ОПОВЕЩЕНИЙ
-           ==================================================== */
-
         Text(
             text = "Оповещения",
             style = MaterialTheme.typography.titleLarge
         )
+
 
         Spacer(
             modifier = Modifier.height(12.dp)
@@ -537,10 +529,6 @@ private fun SetupScreen(
         )
 
 
-        /* ----------------------------------------------------
-           НАЧАЛО
-           ---------------------------------------------------- */
-
         Button(
             onClick = onStartTracking,
 
@@ -581,146 +569,11 @@ private fun TrackingScreen(
         LocalContext.current
 
 
-    val api = remember {
-        QueueApi()
-    }
-
-
-    val analyzer = remember {
-        QueueAnalyzer(context)
-    }
-
-
     /*
-     * Менеджер оповещений.
+     * Запускаем Foreground Service.
      *
-     * Он живёт весь текущий сеанс
-     * отслеживания.
-     */
-
-    val alertManager = remember {
-        QueueAlertManager(context)
-    }
-
-
-    /*
-     * Освобождаем TextToSpeech
-     * при уничтожении экрана.
-     */
-
-    androidx.compose.runtime.DisposableEffect(
-        Unit
-    ) {
-
-        onDispose {
-            alertManager.release()
-        }
-    }
-
-
-    /*
-     * Реальные checkpointId API.
-     */
-
-    val checkpointId = when (checkpointName) {
-
-        "Бенякони" ->
-            "53d94097-2b34-11ec-8467-ac1f6bf889c0"
-
-        "Берестовица" ->
-            "7e46a2d1-ab2f-11ec-bafb-ac1f6bf889c1"
-
-        "Брест" ->
-            "a9173a85-3fc0-424c-84f0-defa632481e4"
-
-        "Брузги" ->
-            "3b797d4d-706a-440f-a1a4-826c191e1e36"
-
-        "Григоровщина" ->
-            "ffe81c11-00d6-11e8-a967-b0dd44bde851"
-
-        "Каменный Лог" ->
-            "b60677d4-8a00-4f93-a781-e129e1692a03"
-
-        "Козловичи" ->
-            "98b5be92-d3a5-4ba2-9106-76eb4eb3df49"
-
-        else ->
-            null
-    }
-
-
-    var message by remember {
-        mutableStateOf("Подготовка...")
-    }
-
-
-    var position by remember {
-        mutableStateOf<Int?>(null)
-    }
-
-
-    var previousPosition by remember {
-        mutableStateOf<Int?>(null)
-    }
-
-
-    var vehicleState by remember {
-        mutableStateOf<VehicleState?>(null)
-    }
-
-
-    var queueCount by remember {
-        mutableStateOf<Int?>(null)
-    }
-
-
-    var lastUpdate by remember {
-        mutableStateOf("")
-    }
-
-
-    var speed by remember {
-        mutableStateOf<QueueSpeed?>(null)
-    }
-
-
-    var forecastMinutes by remember {
-        mutableStateOf<Double?>(null)
-    }
-
-
-    /*
-     * Исчезновение автомобиля из JSON
-     * не считается вызовом.
-     */
-
-    var vehicleWasConfirmed by remember {
-        mutableStateOf(false)
-    }
-
-
-    /*
-     * Однократность событий.
-     */
-
-    var positionAlertTriggered by remember {
-        mutableStateOf(false)
-    }
-
-    var forecastAlertTriggered by remember {
-        mutableStateOf(false)
-    }
-
-    var calledAlertTriggered by remember {
-        mutableStateOf(false)
-    }
-
-
-    /*
-     * Если пользователь уже подтвердил
-     * позиционное оповещение, оно больше
-     * не запускается в этом сеансе.
+     * После этого API опрашивается
+     * не Activity, а сервисом.
      */
 
     LaunchedEffect(
@@ -728,364 +581,198 @@ private fun TrackingScreen(
         checkpointName
     ) {
 
-        analyzer.reset()
-
-        alertManager.reset()
-
-        position = null
-        previousPosition = null
-        vehicleState = null
-        queueCount = null
-        lastUpdate = ""
-        speed = null
-        forecastMinutes = null
-        vehicleWasConfirmed = false
-
-        positionAlertTriggered = false
-        forecastAlertTriggered = false
-        calledAlertTriggered = false
-
-
-        if (carNumber.isBlank()) {
-
-            message =
-                "Номер автомобиля не введён."
-
-            return@LaunchedEffect
-        }
-
-
-        if (checkpointId == null) {
-
-            message =
-                "Для КПП «$checkpointName» " +
-                    "ID API пока не подключён."
-
-            return@LaunchedEffect
-        }
-
-
-        while (true) {
-
-            message =
-                "Получение данных очереди..."
-
-
-            try {
-
-                val result =
-                    api.getMonitoring(
-                        checkpointId
-                    )
-
-
-                result.fold(
-
-                    onSuccess = { json ->
-
-                        try {
-
-                            val vehicles =
-                                analyzer.processSnapshot(
-                                    json = json,
-
-                                    checkpointName =
-                                        checkpointName
-                                )
-
-
-                            queueCount =
-                                vehicles.size
-
-
-                            lastUpdate =
-                                SimpleDateFormat(
-                                    "HH:mm:ss",
-                                    Locale.getDefault()
-                                ).format(
-                                    Date()
-                                )
-
-
-                            val vehicle =
-                                analyzer.findVehicle(
-                                    json,
-                                    carNumber
-                                )
-
-
-                            if (vehicle != null) {
-
-                                vehicleWasConfirmed =
-                                    true
-
-
-                                val detectedState =
-                                    analyzer.determineState(
-                                        vehicle
-                                    )
-
-
-                                vehicleState =
-                                    detectedState
-
-
-                                when (detectedState) {
-
-                                    VehicleState.IN_QUEUE -> {
-
-                                        val newPosition =
-                                            vehicle.position
-
-
-                                        /*
-                                         * Проверяем переход
-                                         * через заданный порог.
-                                         *
-                                         * Например:
-                                         *
-                                         * 105 -> 95
-                                         *
-                                         * считается достижением
-                                         * позиции 100 или меньше.
-                                         */
-
-                                        if (
-                                            positionAlertEnabled &&
-                                            !positionAlertTriggered &&
-                                            newPosition != null
-                                        ) {
-
-                                            val crossedThreshold =
-                                                if (
-                                                    previousPosition == null
-                                                ) {
-
-                                                    newPosition <=
-                                                        positionAlertThreshold
-
-                                                } else {
-
-                                                    previousPosition!! >
-                                                        positionAlertThreshold &&
-                                                        newPosition <=
-                                                        positionAlertThreshold
-                                                }
-
-
-                                            if (
-                                                crossedThreshold
-                                            ) {
-
-                                                positionAlertTriggered =
-                                                    true
-
-                                                alertManager.trigger(
-                                                    AlertType.POSITION,
-
-                                                    "Автомобиль достиг позиции " +
-                                                        "$positionAlertThreshold " +
-                                                        "или меньше."
-                                                )
-                                            }
-                                        }
-
-
-                                        previousPosition =
-                                            newPosition
-
-
-                                        position =
-                                            newPosition
-
-
-                                        val forecast =
-                                            analyzer.calculateForecast(
-
-                                                regnum =
-                                                    vehicle.regnum,
-
-                                                checkpointName =
-                                                    checkpointName
-                                            )
-
-
-                                        speed =
-                                            forecast?.speed
-
-
-                                        forecastMinutes =
-                                            forecast?.estimatedMinutes
-
-
-                                        /*
-                                         * Предупреждение по прогнозу.
-                                         *
-                                         * Срабатывает один раз,
-                                         * когда прогноз впервые
-                                         * становится <= заданного
-                                         * времени.
-                                         */
-
-                                        if (
-                                            forecastAlertEnabled &&
-                                            !forecastAlertTriggered &&
-                                            forecastMinutes != null &&
-                                            forecastMinutes!! <=
-                                                forecastAlertMinutes
-                                        ) {
-
-                                            forecastAlertTriggered =
-                                                true
-
-                                            val roundedMinutes =
-                                                forecastMinutes!!
-                                                    .toInt()
-                                                    .coerceAtLeast(0)
-
-                                            alertManager.trigger(
-                                                AlertType.FORECAST,
-
-                                                "До вызова автомобиля " +
-                                                    "ориентировочно " +
-                                                    "$roundedMinutes минут."
-                                            )
-                                        }
-
-
-                                        message =
-                                            if (
-                                                newPosition != null
-                                            ) {
-
-                                                "Автомобиль находится " +
-                                                    "в живой очереди."
-
-                                            } else {
-
-                                                "Автомобиль найден, " +
-                                                    "но позиция не передана."
-                                            }
-                                    }
-
-
-                                    VehicleState.CALLED -> {
-
-                                        message =
-                                            "Автомобиль вызван " +
-                                                "в пункт пропуска."
-
-
-                                        /*
-                                         * Фактический вызов.
-                                         *
-                                         * Только status == 3.
-                                         */
-
-                                        if (
-                                            calledAlertEnabled &&
-                                            !calledAlertTriggered
-                                        ) {
-
-                                            calledAlertTriggered =
-                                                true
-
-                                            alertManager.trigger(
-                                                AlertType.CALLED,
-
-                                                "Автомобиль вызван " +
-                                                    "в пункт пропуска."
-                                            )
-                                        }
-
-
-                                        position = null
-
-                                        speed = null
-
-                                        forecastMinutes = null
-                                    }
-
-
-                                    VehicleState.UNKNOWN -> {
-
-                                        message =
-                                            "Автомобиль найден, " +
-                                                "но сервер не дал " +
-                                                "однозначного состояния."
-                                    }
-                                }
-
-
-                            } else {
-
-                                /*
-                                 * Автомобиль отсутствует.
-                                 *
-                                 * Никакого вызова здесь
-                                 * не генерируем.
-                                 */
-
-                                if (!vehicleWasConfirmed) {
-
-                                    vehicleState = null
-
-                                    message =
-                                        "Автомобиль пока не обнаружен. " +
-                                            "Ожидаем следующее обновление."
-
-                                } else {
-
-                                    message =
-                                        "Данные автомобиля временно " +
-                                            "отсутствуют. Последняя " +
-                                            "подтверждённая позиция " +
-                                            "сохраняется."
-                                }
-                            }
-
-                        } catch (e: Exception) {
-
-                            message =
-                                "Ошибка обработки ответа: " +
-                                    (
-                                        e.message
-                                            ?: "неизвестная ошибка"
-                                    )
-                        }
-                    },
-
-
-                    onFailure = { error ->
-
-                        message =
-                            "Ошибка получения данных: " +
-                                (
-                                    error.message
-                                        ?: "неизвестная ошибка"
-                                )
-                    }
+        val intent =
+            Intent(
+                context,
+                QueueWatchService::class.java
+            ).apply {
+
+                putExtra(
+                    QueueWatchService.EXTRA_CAR_NUMBER,
+                    carNumber
                 )
 
-            } catch (e: Exception) {
+                putExtra(
+                    QueueWatchService.EXTRA_CHECKPOINT,
+                    checkpointName
+                )
 
-                message =
-                    "Ошибка мониторинга: " +
-                        (
-                            e.message
-                                ?: "неизвестная ошибка"
-                        )
+                putExtra(
+                    QueueWatchService.EXTRA_POSITION_ALERT_ENABLED,
+                    positionAlertEnabled
+                )
+
+                putExtra(
+                    QueueWatchService.EXTRA_POSITION_THRESHOLD,
+                    positionAlertThreshold
+                )
+
+                putExtra(
+                    QueueWatchService.EXTRA_FORECAST_ALERT_ENABLED,
+                    forecastAlertEnabled
+                )
+
+                putExtra(
+                    QueueWatchService.EXTRA_FORECAST_MINUTES,
+                    forecastAlertMinutes
+                )
+
+                putExtra(
+                    QueueWatchService.EXTRA_CALLED_ALERT_ENABLED,
+                    calledAlertEnabled
+                )
             }
 
 
-            delay(20_000)
-        }
+        androidx.core.content.ContextCompat.startForegroundService(
+            context,
+            intent
+        )
     }
 
 
-    /* ========================================================
-       ИНТЕРФЕЙС
-       ======================================================== */
+    /*
+     * Читаем состояние сервиса.
+     *
+     * Это позволяет экрану обновляться,
+     * даже если сам API-цикл работает
+     * независимо от Activity.
+     */
+
+    val preferences =
+        remember {
+
+            context.getSharedPreferences(
+                QueueWatchService.PREFS_NAME,
+                android.content.Context.MODE_PRIVATE
+            )
+        }
+
+
+    var position by remember {
+        mutableStateOf<Int?>(null)
+    }
+
+    var vehicleState by remember {
+        mutableStateOf<String>("")
+    }
+
+    var queueCount by remember {
+        mutableStateOf<Int?>(null)
+    }
+
+    var speed by remember {
+        mutableStateOf<Double?>(null)
+    }
+
+    var forecastMinutes by remember {
+        mutableStateOf<Double?>(null)
+    }
+
+    var message by remember {
+        mutableStateOf("Подготовка...")
+    }
+
+    var lastUpdate by remember {
+        mutableStateOf("")
+    }
+
+
+    LaunchedEffect(Unit) {
+
+        while (true) {
+
+            position =
+                if (
+                    preferences.contains(
+                        QueueWatchService.KEY_POSITION
+                    )
+                ) {
+
+                    preferences.getInt(
+                        QueueWatchService.KEY_POSITION,
+                        0
+                    )
+                } else {
+                    null
+                }
+
+
+            vehicleState =
+                preferences.getString(
+                    QueueWatchService.KEY_STATE,
+                    ""
+                ) ?: ""
+
+
+            queueCount =
+                if (
+                    preferences.contains(
+                        QueueWatchService.KEY_QUEUE_COUNT
+                    )
+                ) {
+
+                    preferences.getInt(
+                        QueueWatchService.KEY_QUEUE_COUNT,
+                        0
+                    )
+                } else {
+                    null
+                }
+
+
+            speed =
+                if (
+                    preferences.contains(
+                        QueueWatchService.KEY_SPEED
+                    )
+                ) {
+
+                    preferences.getFloat(
+                        QueueWatchService.KEY_SPEED,
+                        0f
+                    ).toDouble()
+
+                } else {
+                    null
+                }
+
+
+            forecastMinutes =
+                if (
+                    preferences.contains(
+                        QueueWatchService.KEY_FORECAST
+                    )
+                ) {
+
+                    preferences.getFloat(
+                        QueueWatchService.KEY_FORECAST,
+                        0f
+                    ).toDouble()
+
+                } else {
+                    null
+                }
+
+
+            message =
+                preferences.getString(
+                    QueueWatchService.KEY_MESSAGE,
+                    "Подготовка..."
+                ) ?: "Подготовка..."
+
+
+            lastUpdate =
+                preferences.getString(
+                    QueueWatchService.KEY_LAST_UPDATE,
+                    ""
+                ) ?: ""
+
+
+            delay(1_000)
+        }
+    }
+
 
     Column(
         modifier = Modifier
@@ -1132,7 +819,7 @@ private fun TrackingScreen(
 
         when (vehicleState) {
 
-            VehicleState.IN_QUEUE -> {
+            "IN_QUEUE" -> {
 
                 Text(
                     text = "АВТОМОБИЛЬ В ОЧЕРЕДИ",
@@ -1166,7 +853,7 @@ private fun TrackingScreen(
             }
 
 
-            VehicleState.CALLED -> {
+            "CALLED" -> {
 
                 Text(
                     text = "АВТОМОБИЛЬ ВЫЗВАН",
@@ -1185,7 +872,7 @@ private fun TrackingScreen(
             }
 
 
-            VehicleState.UNKNOWN -> {
+            "UNKNOWN" -> {
 
                 Text(
                     text = "СОСТОЯНИЕ НЕ ОПРЕДЕЛЕНО",
@@ -1194,7 +881,7 @@ private fun TrackingScreen(
             }
 
 
-            null -> {
+            else -> {
 
                 Text(
                     text = "ОЖИДАНИЕ АВТОМОБИЛЯ",
@@ -1251,12 +938,14 @@ private fun TrackingScreen(
                 modifier = Modifier.height(12.dp)
             )
 
+
             Text(
-                text = String.format(
-                    Locale.getDefault(),
-                    "Скорость очереди: %.2f поз./ч",
-                    speed!!.positionsPerHour
-                )
+                text =
+                    String.format(
+                        Locale.getDefault(),
+                        "Скорость очереди: %.2f поз./ч",
+                        speed
+                    )
             )
         }
 
@@ -1296,61 +985,5 @@ private fun TrackingScreen(
                     }
             )
         }
-    }
-
-
-    /*
-     * Всплывающее окно активного оповещения.
-     *
-     * Оно остаётся открытым,
-     * пока пользователь не подтвердит
-     * сообщение.
-     */
-
-    val activeAlert =
-        alertManager.activeAlert
-
-
-    if (activeAlert != null) {
-
-        AlertDialog(
-
-            onDismissRequest = {
-                /*
-                 * Нельзя закрыть окно
-                 * простым нажатием снаружи.
-                 *
-                 * Требуется подтверждение.
-                 */
-            },
-
-            title = {
-
-                Text(
-                    text = activeAlert.title
-                )
-            },
-
-            text = {
-
-                Text(
-                    text = activeAlert.message
-                )
-            },
-
-            confirmButton = {
-
-                Button(
-                    onClick = {
-                        alertManager.acknowledge()
-                    }
-                ) {
-
-                    Text(
-                        text = "ПОДТВЕРДИТЬ"
-                    )
-                }
-            }
-        )
     }
 }
