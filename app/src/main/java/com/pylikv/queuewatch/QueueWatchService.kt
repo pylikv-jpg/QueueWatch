@@ -1,3 +1,4 @@
+
 package com.pylikv.queuewatch
 
 import android.app.Notification
@@ -20,14 +21,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-
 class QueueWatchService : Service() {
 
     companion object {
 
         const val PREFS_NAME =
             "queuewatch_service_state"
-
 
         const val EXTRA_CAR_NUMBER =
             "car_number"
@@ -50,17 +49,8 @@ class QueueWatchService : Service() {
         const val EXTRA_CALLED_ALERT_ENABLED =
             "called_alert_enabled"
 
-
-        /*
-         * Команда от интерфейса:
-         *
-         * пользователь нажал
-         * "ПОДТВЕРДИТЬ".
-         */
-
         const val ACTION_ACKNOWLEDGE_ALERT =
             "com.pylikv.queuewatch.ACKNOWLEDGE_ALERT"
-
 
         const val KEY_POSITION =
             "position"
@@ -83,12 +73,6 @@ class QueueWatchService : Service() {
         const val KEY_LAST_UPDATE =
             "last_update"
 
-
-        /*
-         * Состояние всплывающего
-         * предупреждения.
-         */
-
         const val KEY_ALERT_ACTIVE =
             "alert_active"
 
@@ -98,6 +82,11 @@ class QueueWatchService : Service() {
         const val KEY_ALERT_MESSAGE =
             "alert_message"
 
+        const val KEY_ALERT_EVENT_ID =
+            "alert_event_id"
+
+        const val KEY_ACKNOWLEDGED_EVENT_ID =
+            "acknowledged_event_id"
 
         private const val CHANNEL_ID =
             "queuewatch_monitoring"
@@ -115,39 +104,23 @@ class QueueWatchService : Service() {
             60_000L
     }
 
-
     private val scope =
-        CoroutineScope(
-            Dispatchers.IO
-        )
+        CoroutineScope(Dispatchers.IO)
 
+    private var monitoringJob: Job? = null
 
-    private var monitoringJob: Job? =
-        null
+    private var alertNotificationJob: Job? = null
 
+    private var alertManager: QueueAlertManager? = null
 
-    private var alertNotificationJob: Job? =
-        null
-
-
-    private var alertManager:
-        QueueAlertManager? =
-        null
-
-
-    private var wakeLock:
-        PowerManager.WakeLock? =
-        null
-
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private lateinit var preferences:
         android.content.SharedPreferences
 
-
     override fun onCreate() {
 
         super.onCreate()
-
 
         preferences =
             getSharedPreferences(
@@ -155,9 +128,7 @@ class QueueWatchService : Service() {
                 Context.MODE_PRIVATE
             )
 
-
         createNotificationChannel()
-
 
         startForeground(
             NOTIFICATION_ID,
@@ -166,7 +137,6 @@ class QueueWatchService : Service() {
             )
         )
 
-
         try {
 
             val powerManager =
@@ -174,26 +144,20 @@ class QueueWatchService : Service() {
                     Context.POWER_SERVICE
                 ) as PowerManager
 
-
             wakeLock =
                 powerManager.newWakeLock(
                     PowerManager.PARTIAL_WAKE_LOCK,
                     "QueueWatch::Monitoring"
                 )
 
-
             wakeLock?.acquire()
 
         } catch (_: Exception) {
         }
 
-
         alertManager =
-            QueueAlertManager(
-                applicationContext
-            )
+            QueueAlertManager(applicationContext)
     }
-
 
     override fun onStartCommand(
         intent: Intent?,
@@ -201,17 +165,9 @@ class QueueWatchService : Service() {
         startId: Int
     ): Int {
 
-        /*
-         * Сначала обрабатываем команду
-         * подтверждения.
-         *
-         * Здесь не требуются номер машины
-         * и пункт пропуска.
-         */
-
         if (
             intent?.action ==
-                ACTION_ACKNOWLEDGE_ALERT
+            ACTION_ACKNOWLEDGE_ALERT
         ) {
 
             acknowledgeAlert()
@@ -219,18 +175,15 @@ class QueueWatchService : Service() {
             return START_STICKY
         }
 
-
         val carNumber =
             intent?.getStringExtra(
                 EXTRA_CAR_NUMBER
             ) ?: return START_STICKY
 
-
         val checkpoint =
             intent.getStringExtra(
                 EXTRA_CHECKPOINT
             ) ?: return START_STICKY
-
 
         val positionAlertEnabled =
             intent.getBooleanExtra(
@@ -238,13 +191,11 @@ class QueueWatchService : Service() {
                 true
             )
 
-
         val positionThreshold =
             intent.getIntExtra(
                 EXTRA_POSITION_THRESHOLD,
                 100
             )
-
 
         val forecastAlertEnabled =
             intent.getBooleanExtra(
@@ -252,13 +203,11 @@ class QueueWatchService : Service() {
                 true
             )
 
-
         val forecastMinutes =
             intent.getIntExtra(
                 EXTRA_FORECAST_MINUTES,
                 30
             )
-
 
         val calledAlertEnabled =
             intent.getBooleanExtra(
@@ -266,98 +215,51 @@ class QueueWatchService : Service() {
                 true
             )
 
-
-        /*
-         * Если сервис был перезапущен
-         * с новыми параметрами,
-         * старый цикл мониторинга
-         * останавливаем.
-         */
-
         monitoringJob?.cancel()
-
 
         monitoringJob =
             scope.launch {
 
                 monitor(
-
                     carNumber = carNumber,
-
-                    checkpointName =
-                        checkpoint,
-
-                    positionAlertEnabled =
-                        positionAlertEnabled,
-
-                    positionThreshold =
-                        positionThreshold,
-
-                    forecastAlertEnabled =
-                        forecastAlertEnabled,
-
-                    forecastAlertMinutes =
-                        forecastMinutes,
-
-                    calledAlertEnabled =
-                        calledAlertEnabled
+                    checkpointName = checkpoint,
+                    positionAlertEnabled = positionAlertEnabled,
+                    positionThreshold = positionThreshold,
+                    forecastAlertEnabled = forecastAlertEnabled,
+                    forecastAlertMinutes = forecastMinutes,
+                    calledAlertEnabled = calledAlertEnabled
                 )
             }
-
 
         return START_STICKY
     }
 
-
-    /* ========================================================
-       ОСНОВНОЙ МОНИТОРИНГ
-       ======================================================== */
-
     private suspend fun monitor(
         carNumber: String,
         checkpointName: String,
-
         positionAlertEnabled: Boolean,
         positionThreshold: Int,
-
         forecastAlertEnabled: Boolean,
         forecastAlertMinutes: Int,
-
         calledAlertEnabled: Boolean
     ) {
 
-        val api =
-            QueueApi()
-
+        val api = QueueApi()
 
         val analyzer =
-            QueueAnalyzer(
-                applicationContext
-            )
-
+            QueueAnalyzer(applicationContext)
 
         analyzer.reset()
 
+        var previousPosition: Int? = null
 
-        var previousPosition:
-            Int? = null
+        var vehicleWasConfirmed = false
 
+        var positionAlertTriggered = false
 
-        var vehicleWasConfirmed =
-            false
+        var forecastAlertTriggered = false
 
-
-        var positionAlertTriggered =
-            false
-
-
-        var forecastAlertTriggered =
-            false
-
-
-        var calledAlertTriggered =
-            false
-
+        var calledAlertTriggered = false
 
         val checkpointId =
             when (checkpointName) {
@@ -387,7 +289,6 @@ class QueueWatchService : Service() {
                     null
             }
 
-
         if (checkpointId == null) {
 
             saveMessage(
@@ -397,78 +298,44 @@ class QueueWatchService : Service() {
             return
         }
 
-
         while (scope.isActive) {
 
             try {
 
                 val result =
-                    api.getMonitoring(
-                        checkpointId
-                    )
-
+                    api.getMonitoring(checkpointId)
 
                 result.fold(
 
                     onSuccess = { json ->
 
                         processSnapshot(
-
                             json = json,
-
                             analyzer = analyzer,
-
                             carNumber = carNumber,
-
-                            checkpointName =
-                                checkpointName,
-
-                            previousPosition =
-                                previousPosition,
-
+                            checkpointName = checkpointName,
+                            previousPosition = previousPosition,
                             onPreviousPositionChange = {
                                 previousPosition = it
                             },
-
-                            vehicleWasConfirmed =
-                                vehicleWasConfirmed,
-
+                            vehicleWasConfirmed = vehicleWasConfirmed,
                             onVehicleConfirmedChange = {
                                 vehicleWasConfirmed = it
                             },
-
-                            positionAlertEnabled =
-                                positionAlertEnabled,
-
-                            positionThreshold =
-                                positionThreshold,
-
-                            positionAlertTriggered =
-                                positionAlertTriggered,
-
+                            positionAlertEnabled = positionAlertEnabled,
+                            positionThreshold = positionThreshold,
+                            positionAlertTriggered = positionAlertTriggered,
                             onPositionAlertTriggeredChange = {
                                 positionAlertTriggered = it
                             },
-
-                            forecastAlertEnabled =
-                                forecastAlertEnabled,
-
-                            forecastAlertMinutes =
-                                forecastAlertMinutes,
-
-                            forecastAlertTriggered =
-                                forecastAlertTriggered,
-
+                            forecastAlertEnabled = forecastAlertEnabled,
+                            forecastAlertMinutes = forecastAlertMinutes,
+                            forecastAlertTriggered = forecastAlertTriggered,
                             onForecastAlertTriggeredChange = {
                                 forecastAlertTriggered = it
                             },
-
-                            calledAlertEnabled =
-                                calledAlertEnabled,
-
-                            calledAlertTriggered =
-                                calledAlertTriggered,
-
+                            calledAlertEnabled = calledAlertEnabled,
+                            calledAlertTriggered = calledAlertTriggered,
                             onCalledAlertTriggeredChange = {
                                 calledAlertTriggered = it
                             }
@@ -478,8 +345,7 @@ class QueueWatchService : Service() {
                     onFailure = {
 
                         saveMessage(
-                            "Ошибка получения данных. " +
-                                "Повторяем попытку..."
+                            "Ошибка получения данных. Повторяем попытку..."
                         )
                     }
                 )
@@ -487,87 +353,44 @@ class QueueWatchService : Service() {
             } catch (_: Exception) {
 
                 saveMessage(
-                    "Временная ошибка. " +
-                        "Мониторинг продолжается."
+                    "Временная ошибка. Мониторинг продолжается."
                 )
             }
 
-
-            /*
-             * Если пяти предупреждений достаточно
-             * и QueueAlertManager автоматически
-             * завершил событие, очищаем флаг
-             * всплывающего окна.
-             */
-
             if (
-                alertManager?.activeAlert ==
-                    null
+                alertManager?.activeAlert == null
             ) {
-
                 clearAlertState()
             }
-
 
             updateServiceNotification(
                 "QueueWatch: $checkpointName"
             )
 
-
-            delay(
-                UPDATE_INTERVAL
-            )
+            delay(UPDATE_INTERVAL)
         }
     }
 
-
-    /* ========================================================
-       ОБРАБОТКА СНИМКА
-       ======================================================== */
-
     private fun processSnapshot(
         json: String,
-
         analyzer: QueueAnalyzer,
-
         carNumber: String,
-
         checkpointName: String,
-
         previousPosition: Int?,
-
-        onPreviousPositionChange:
-            (Int?) -> Unit,
-
+        onPreviousPositionChange: (Int?) -> Unit,
         vehicleWasConfirmed: Boolean,
-
-        onVehicleConfirmedChange:
-            (Boolean) -> Unit,
-
+        onVehicleConfirmedChange: (Boolean) -> Unit,
         positionAlertEnabled: Boolean,
-
         positionThreshold: Int,
-
         positionAlertTriggered: Boolean,
-
-        onPositionAlertTriggeredChange:
-            (Boolean) -> Unit,
-
+        onPositionAlertTriggeredChange: (Boolean) -> Unit,
         forecastAlertEnabled: Boolean,
-
         forecastAlertMinutes: Int,
-
         forecastAlertTriggered: Boolean,
-
-        onForecastAlertTriggeredChange:
-            (Boolean) -> Unit,
-
+        onForecastAlertTriggeredChange: (Boolean) -> Unit,
         calledAlertEnabled: Boolean,
-
         calledAlertTriggered: Boolean,
-
-        onCalledAlertTriggeredChange:
-            (Boolean) -> Unit
+        onCalledAlertTriggeredChange: (Boolean) -> Unit
     ) {
 
         try {
@@ -575,19 +398,12 @@ class QueueWatchService : Service() {
             val vehicles =
                 analyzer.processSnapshot(
                     json = json,
-
-                    checkpointName =
-                        checkpointName
+                    checkpointName = checkpointName
                 )
 
-
-            saveQueueCount(
-                vehicles.size
-            )
-
+            saveQueueCount(vehicles.size)
 
             saveLastUpdate()
-
 
             val vehicle =
                 analyzer.findVehicle(
@@ -595,20 +411,11 @@ class QueueWatchService : Service() {
                     carNumber
                 )
 
-
-            /*
-             * Временное отсутствие автомобиля
-             * НЕ является вызовом.
-             */
-
             if (vehicle == null) {
 
                 if (!vehicleWasConfirmed) {
 
-                    saveState(
-                        state = "",
-                        position = null
-                    )
+                    saveState("", null)
 
                     saveMessage(
                         "Автомобиль пока не обнаружен."
@@ -617,75 +424,49 @@ class QueueWatchService : Service() {
                 } else {
 
                     saveMessage(
-                        "Данные автомобиля временно " +
-                            "отсутствуют. Последняя " +
-                            "подтверждённая позиция сохраняется."
+                        "Данные автомобиля временно отсутствуют. Последняя подтверждённая позиция сохраняется."
                     )
                 }
 
                 return
             }
 
+            onVehicleConfirmedChange(true)
 
-            onVehicleConfirmedChange(
-                true
-            )
-
-
-            val state =
-                analyzer.determineState(
-                    vehicle
-                )
-
-
-            when (state) {
-
-                /* =================================================
-                   ЖИВАЯ ОЧЕРЕДЬ
-                   ================================================= */
+            when (
+                analyzer.determineState(vehicle)
+            ) {
 
                 VehicleState.IN_QUEUE -> {
 
                     val currentPosition =
                         vehicle.position
 
-
                     saveState(
-                        state = "IN_QUEUE",
-                        position = currentPosition
+                        "IN_QUEUE",
+                        currentPosition
                     )
 
-
-                    /*
-                     * ПОЗИЦИОННОЕ ОПОВЕЩЕНИЕ
-                     */
-
-                    if (
-                        currentPosition != null
-                    ) {
-
-                        /*
-                         * Вышли обратно выше порога.
-                         *
-                         * После этого разрешаем
-                         * следующее событие.
-                         */
+                    if (currentPosition != null) {
 
                         if (
                             currentPosition >
-                                positionThreshold
+                            positionThreshold
                         ) {
 
-                            if (
-                                positionAlertTriggered
-                            ) {
+                            if (positionAlertTriggered) {
 
-                                onPositionAlertTriggeredChange(
-                                    false
+                                onPositionAlertTriggeredChange(false)
+
+                                clearAcknowledgement(
+                                    buildEventId(
+                                        checkpointName,
+                                        carNumber,
+                                        AlertType.POSITION
+                                    )
                                 )
                             }
                         }
-
 
                         if (
                             positionAlertEnabled &&
@@ -693,70 +474,43 @@ class QueueWatchService : Service() {
                         ) {
 
                             val crossed =
-                                if (
-                                    previousPosition == null
-                                ) {
-
-                                    currentPosition <=
-                                        positionThreshold
-
+                                if (previousPosition == null) {
+                                    currentPosition <= positionThreshold
                                 } else {
-
-                                    previousPosition >
-                                        positionThreshold &&
-                                        currentPosition <=
-                                            positionThreshold
+                                    previousPosition > positionThreshold &&
+                                    currentPosition <= positionThreshold
                                 }
-
 
                             if (crossed) {
 
-                                onPositionAlertTriggeredChange(
-                                    true
-                                )
-
+                                onPositionAlertTriggeredChange(true)
 
                                 triggerAlert(
-
                                     AlertType.POSITION,
-
-                                    "Автомобиль достиг позиции " +
-                                        "$positionThreshold или меньше."
+                                    "Автомобиль достиг позиции $positionThreshold или меньше.",
+                                    buildEventId(
+                                        checkpointName,
+                                        carNumber,
+                                        AlertType.POSITION
+                                    )
                                 )
                             }
                         }
                     }
 
-
-                    onPreviousPositionChange(
-                        currentPosition
-                    )
-
-
-                    /*
-                     * ПРОГНОЗ
-                     */
+                    onPreviousPositionChange(currentPosition)
 
                     val forecast =
                         analyzer.calculateForecast(
-
-                            regnum =
-                                vehicle.regnum,
-
-                            checkpointName =
-                                checkpointName
+                            vehicle.regnum,
+                            checkpointName
                         )
 
-
-                    if (
-                        forecast?.speed != null
-                    ) {
-
+                    forecast?.speed?.let {
                         saveSpeed(
-                            forecast.speed.positionsPerHour
+                            it.positionsPerHour
                         )
                     }
-
 
                     if (
                         forecast?.estimatedMinutes != null
@@ -768,161 +522,112 @@ class QueueWatchService : Service() {
 
                     } else {
 
-                        preferences
-                            .edit()
-                            .remove(
-                                KEY_FORECAST
-                            )
+                        preferences.edit()
+                            .remove(KEY_FORECAST)
                             .apply()
                     }
-
 
                     val estimated =
                         forecast?.estimatedMinutes
 
-
-                    /*
-                     * ВРЕМЕННОЕ ОПОВЕЩЕНИЕ
-                     */
-
-                    if (
-                        estimated != null
-                    ) {
-
-                        /*
-                         * Прогноз снова вышел
-                         * за предел порога.
-                         *
-                         * Следующее попадание
-                         * создаст новое событие.
-                         */
+                    if (estimated != null) {
 
                         if (
                             estimated >
-                                forecastAlertMinutes
+                            forecastAlertMinutes
                         ) {
 
-                            if (
-                                forecastAlertTriggered
-                            ) {
+                            if (forecastAlertTriggered) {
 
-                                onForecastAlertTriggeredChange(
-                                    false
+                                onForecastAlertTriggeredChange(false)
+
+                                clearAcknowledgement(
+                                    buildEventId(
+                                        checkpointName,
+                                        carNumber,
+                                        AlertType.FORECAST
+                                    )
                                 )
                             }
                         }
 
-
                         if (
                             forecastAlertEnabled &&
                             !forecastAlertTriggered &&
-                            estimated <=
-                                forecastAlertMinutes
+                            estimated <= forecastAlertMinutes
                         ) {
 
-                            onForecastAlertTriggeredChange(
-                                true
-                            )
-
+                            onForecastAlertTriggeredChange(true)
 
                             val rounded =
-                                estimated
-                                    .toInt()
+                                estimated.toInt()
                                     .coerceAtLeast(0)
 
-
                             triggerAlert(
-
                                 AlertType.FORECAST,
-
-                                "До вызова автомобиля " +
-                                    "ориентировочно " +
-                                    "$rounded минут."
+                                "До вызова автомобиля ориентировочно $rounded минут.",
+                                buildEventId(
+                                    checkpointName,
+                                    carNumber,
+                                    AlertType.FORECAST
+                                )
                             )
                         }
                     }
 
-
                     saveMessage(
-
-                        if (
-                            currentPosition != null
-                        ) {
-
-                            "Автомобиль находится " +
-                                "в живой очереди."
-
-                        } else {
-
-                            "Автомобиль найден, " +
-                                "но позиция не передана."
-                        }
+                        "Автомобиль находится в живой очереди."
                     )
                 }
-
-
-                /* =================================================
-                   ФАКТИЧЕСКИЙ ВЫЗОВ
-                   ================================================= */
 
                 VehicleState.CALLED -> {
 
                     saveState(
-                        state = "CALLED",
-                        position = null
+                        "CALLED",
+                        null
                     )
-
 
                     saveMessage(
-                        "Автомобиль вызван " +
-                            "в пункт пропуска."
+                        "Автомобиль вызван в пункт пропуска."
                     )
 
+                    val eventId =
+                        buildEventId(
+                            checkpointName,
+                            carNumber,
+                            AlertType.CALLED
+                        )
 
                     if (
                         calledAlertEnabled &&
-                        !calledAlertTriggered
+                        !calledAlertTriggered &&
+                        !isAcknowledged(eventId)
                     ) {
 
-                        onCalledAlertTriggeredChange(
-                            true
-                        )
-
+                        onCalledAlertTriggeredChange(true)
 
                         triggerAlert(
-
                             AlertType.CALLED,
-
-                            "Автомобиль вызван " +
-                                "в пункт пропуска."
+                            "Автомобиль вызван в пункт пропуска.",
+                            eventId
                         )
                     }
 
-
-                    preferences
-                        .edit()
+                    preferences.edit()
                         .remove(KEY_SPEED)
                         .remove(KEY_FORECAST)
                         .apply()
                 }
 
-
-                /* =================================================
-                   НЕОПРЕДЕЛЁННОЕ СОСТОЯНИЕ
-                   ================================================= */
-
                 VehicleState.UNKNOWN -> {
 
                     saveState(
-                        state = "UNKNOWN",
-                        position = null
+                        "UNKNOWN",
+                        null
                     )
 
-
                     saveMessage(
-                        "Автомобиль найден, " +
-                            "но сервер не дал " +
-                            "однозначного состояния."
+                        "Автомобиль найден, но сервер не дал однозначного состояния."
                     )
                 }
             }
@@ -930,35 +635,61 @@ class QueueWatchService : Service() {
         } catch (_: Exception) {
 
             saveMessage(
-                "Ошибка обработки данных. " +
-                    "Мониторинг продолжается."
+                "Ошибка обработки данных. Мониторинг продолжается."
             )
         }
     }
 
+    private fun buildEventId(
+        checkpoint: String,
+        carNumber: String,
+        type: AlertType
+    ): String {
 
-    /* ========================================================
-       ЗАПУСК ОПОВЕЩЕНИЯ
-       ======================================================== */
+        return checkpoint +
+            "|" +
+            carNumber.uppercase() +
+            "|" +
+            type.name
+    }
+
+    private fun isAcknowledged(
+        eventId: String
+    ): Boolean {
+
+        return preferences.getString(
+            KEY_ACKNOWLEDGED_EVENT_ID,
+            null
+        ) == eventId
+    }
+
+    private fun clearAcknowledgement(
+        eventId: String
+    ) {
+
+        if (isAcknowledged(eventId)) {
+
+            preferences.edit()
+                .remove(KEY_ACKNOWLEDGED_EVENT_ID)
+                .apply()
+        }
+    }
 
     private fun triggerAlert(
         type: AlertType,
-        message: String
+        message: String,
+        eventId: String
     ) {
 
-        /*
-         * Если уже идёт другое активное
-         * событие — новое не затираем.
-         */
-
-        if (
-            alertManager?.activeAlert !=
-                null
-        ) {
-
+        if (isAcknowledged(eventId)) {
             return
         }
 
+        if (
+            alertManager?.activeAlert != null
+        ) {
+            return
+        }
 
         val title =
             when (type) {
@@ -973,13 +704,7 @@ class QueueWatchService : Service() {
                     "ВНИМАНИЕ: ВЫЗОВ"
             }
 
-
-        /*
-         * Сохраняем данные для Compose.
-         */
-
-        preferences
-            .edit()
+        preferences.edit()
 
             .putBoolean(
                 KEY_ALERT_ACTIVE,
@@ -996,35 +721,21 @@ class QueueWatchService : Service() {
                 message
             )
 
+            .putString(
+                KEY_ALERT_EVENT_ID,
+                eventId
+            )
+
             .apply()
-
-
-        /*
-         * Передаём событие менеджеру.
-         *
-         * Именно QueueAlertManager
-         * контролирует максимум 5
-         * звуковых/голосовых предупреждений.
-         */
 
         alertManager?.trigger(
             type,
             message
         )
 
-
-        showAlertNotification(
-            message
-        )
-
-
-        /*
-         * Визуальное системное уведомление
-         * обновляем, пока событие активно.
-         */
+        showAlertNotification(message)
 
         alertNotificationJob?.cancel()
-
 
         alertNotificationJob =
             scope.launch {
@@ -1035,10 +746,8 @@ class QueueWatchService : Service() {
                         ALERT_NOTIFICATION_UPDATE_INTERVAL
                     )
 
-
                     if (
-                        alertManager?.activeAlert ==
-                            null
+                        alertManager?.activeAlert == null
                     ) {
 
                         clearAlertState()
@@ -1046,92 +755,61 @@ class QueueWatchService : Service() {
                         break
                     }
 
-
-                    showAlertNotification(
-                        message
-                    )
+                    showAlertNotification(message)
                 }
             }
     }
 
-
-    /* ========================================================
-       ПОДТВЕРЖДЕНИЕ ПОЛЬЗОВАТЕЛЕМ
-       ======================================================== */
-
     private fun acknowledgeAlert() {
 
-        /*
-         * Самое главное:
-         *
-         * останавливаем QueueAlertManager.
-         *
-         * Это прекращает:
-         *
-         * - повторный звук;
-         * - голос;
-         * - следующий цикл.
-         */
+        val eventId =
+            preferences.getString(
+                KEY_ALERT_EVENT_ID,
+                null
+            )
+
+        if (!eventId.isNullOrBlank()) {
+
+            preferences.edit()
+                .putString(
+                    KEY_ACKNOWLEDGED_EVENT_ID,
+                    eventId
+                )
+                .apply()
+        }
 
         alertManager?.acknowledge()
 
-
-        /*
-         * Останавливаем задачу обновления
-         * системного уведомления.
-         */
-
         alertNotificationJob?.cancel()
-
         alertNotificationJob = null
 
+        val manager =
+            getSystemService(
+                Context.NOTIFICATION_SERVICE
+            ) as NotificationManager
 
-        /*
-         * Убираем состояние всплывающего
-         * окна.
-         */
+        manager.cancel(ALERT_NOTIFICATION_ID)
 
         clearAlertState()
-
-
-        /*
-         * Мониторинг НЕ останавливаем.
-         *
-         * Service продолжает опрашивать API
-         * каждые 20 секунд.
-         */
     }
-
-
-    /* ========================================================
-       ОЧИСТКА СОСТОЯНИЯ ОПОВЕЩЕНИЯ
-       ======================================================== */
 
     private fun clearAlertState() {
 
-        preferences
-            .edit()
+        preferences.edit()
 
             .putBoolean(
                 KEY_ALERT_ACTIVE,
                 false
             )
 
-            .remove(
-                KEY_ALERT_TITLE
-            )
+            .remove(KEY_ALERT_TITLE)
 
-            .remove(
-                KEY_ALERT_MESSAGE
-            )
+            .remove(KEY_ALERT_MESSAGE)
+
+            .remove(KEY_ALERT_EVENT_ID)
 
             .apply()
     }
-
-
-    /* ========================================================
-       СОХРАНЕНИЕ СОСТОЯНИЯ
-       ======================================================== */
 
     private fun saveState(
         state: String,
@@ -1141,12 +819,10 @@ class QueueWatchService : Service() {
         val editor =
             preferences.edit()
 
-
         editor.putString(
             KEY_STATE,
             state
         )
-
 
         if (position != null) {
 
@@ -1157,71 +833,39 @@ class QueueWatchService : Service() {
 
         } else {
 
-            editor.remove(
-                KEY_POSITION
-            )
+            editor.remove(KEY_POSITION)
         }
-
 
         editor.apply()
     }
 
+    private fun saveQueueCount(count: Int) {
 
-    private fun saveQueueCount(
-        count: Int
-    ) {
-
-        preferences
-            .edit()
-            .putInt(
-                KEY_QUEUE_COUNT,
-                count
-            )
+        preferences.edit()
+            .putInt(KEY_QUEUE_COUNT, count)
             .apply()
     }
 
+    private fun saveSpeed(value: Double) {
 
-    private fun saveSpeed(
-        value: Double
-    ) {
-
-        preferences
-            .edit()
-            .putFloat(
-                KEY_SPEED,
-                value.toFloat()
-            )
+        preferences.edit()
+            .putFloat(KEY_SPEED, value.toFloat())
             .apply()
     }
 
+    private fun saveForecast(value: Double) {
 
-    private fun saveForecast(
-        value: Double
-    ) {
-
-        preferences
-            .edit()
-            .putFloat(
-                KEY_FORECAST,
-                value.toFloat()
-            )
+        preferences.edit()
+            .putFloat(KEY_FORECAST, value.toFloat())
             .apply()
     }
 
+    private fun saveMessage(value: String) {
 
-    private fun saveMessage(
-        value: String
-    ) {
-
-        preferences
-            .edit()
-            .putString(
-                KEY_MESSAGE,
-                value
-            )
+        preferences.edit()
+            .putString(KEY_MESSAGE, value)
             .apply()
     }
-
 
     private fun saveLastUpdate() {
 
@@ -1231,22 +875,13 @@ class QueueWatchService : Service() {
                 Locale.getDefault()
             )
 
-
-        preferences
-            .edit()
+        preferences.edit()
             .putString(
                 KEY_LAST_UPDATE,
-                formatter.format(
-                    Date()
-                )
+                formatter.format(Date())
             )
             .apply()
     }
-
-
-    /* ========================================================
-       FOREGROUND NOTIFICATION
-       ======================================================== */
 
     private fun createNotificationChannel() {
 
@@ -1255,27 +890,18 @@ class QueueWatchService : Service() {
                 Context.NOTIFICATION_SERVICE
             ) as NotificationManager
 
-
         val channel =
             NotificationChannel(
-
                 CHANNEL_ID,
-
                 "QueueWatch",
-
                 NotificationManager.IMPORTANCE_LOW
             )
-
 
         channel.description =
             "Фоновый мониторинг электронной очереди"
 
-
-        manager.createNotificationChannel(
-            channel
-        )
+        manager.createNotificationChannel(channel)
     }
-
 
     private fun createServiceNotification(
         text: String
@@ -1287,20 +913,14 @@ class QueueWatchService : Service() {
                 MainActivity::class.java
             )
 
-
         val pendingIntent =
             PendingIntent.getActivity(
-
                 this,
-
                 0,
-
                 intent,
-
                 PendingIntent.FLAG_UPDATE_CURRENT or
                     PendingIntent.FLAG_IMMUTABLE
             )
-
 
         return NotificationCompat.Builder(
             this,
@@ -1311,29 +931,18 @@ class QueueWatchService : Service() {
                 android.R.drawable.ic_dialog_info
             )
 
-            .setContentTitle(
-                "QueueWatch"
-            )
+            .setContentTitle("QueueWatch")
 
-            .setContentText(
-                text
-            )
+            .setContentText(text)
 
-            .setContentIntent(
-                pendingIntent
-            )
+            .setContentIntent(pendingIntent)
 
-            .setOngoing(
-                true
-            )
+            .setOngoing(true)
 
-            .setOnlyAlertOnce(
-                true
-            )
+            .setOnlyAlertOnce(true)
 
             .build()
     }
-
 
     private fun updateServiceNotification(
         text: String
@@ -1344,21 +953,11 @@ class QueueWatchService : Service() {
                 Context.NOTIFICATION_SERVICE
             ) as NotificationManager
 
-
         manager.notify(
-
             NOTIFICATION_ID,
-
-            createServiceNotification(
-                text
-            )
+            createServiceNotification(text)
         )
     }
-
-
-    /* ========================================================
-       УВЕДОМЛЕНИЕ ОБ ОПОВЕЩЕНИИ
-       ======================================================== */
 
     private fun showAlertNotification(
         message: String
@@ -1368,7 +967,6 @@ class QueueWatchService : Service() {
             getSystemService(
                 Context.NOTIFICATION_SERVICE
             ) as NotificationManager
-
 
         val notification =
             NotificationCompat.Builder(
@@ -1384,9 +982,7 @@ class QueueWatchService : Service() {
                     "QueueWatch — ВНИМАНИЕ"
                 )
 
-                .setContentText(
-                    message
-                )
+                .setContentText(message)
 
                 .setStyle(
                     NotificationCompat.BigTextStyle()
@@ -1397,25 +993,15 @@ class QueueWatchService : Service() {
                     NotificationCompat.PRIORITY_HIGH
                 )
 
-                .setAutoCancel(
-                    false
-                )
+                .setAutoCancel(false)
 
                 .build()
 
-
         manager.notify(
-
             ALERT_NOTIFICATION_ID,
-
             notification
         )
     }
-
-
-    /* ========================================================
-       ОСТАНОВКА
-       ======================================================== */
 
     override fun onDestroy() {
 
@@ -1423,34 +1009,24 @@ class QueueWatchService : Service() {
 
         alertNotificationJob?.cancel()
 
-
         alertManager?.release()
-
         alertManager = null
-
 
         clearAlertState()
 
-
         try {
-
             wakeLock?.release()
-
         } catch (_: Exception) {
         }
 
-
         wakeLock = null
-
 
         super.onDestroy()
     }
 
-
     override fun onBind(
         intent: Intent?
     ): IBinder? {
-
         return null
     }
 }
