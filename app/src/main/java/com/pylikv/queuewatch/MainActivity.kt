@@ -789,9 +789,6 @@ private fun TrackingScreen(
             /*
              * Проверяем наличие нового события
              * для всплывающего окна.
-             *
-             * Эти ключи будут заполняться
-             * QueueWatchService.
              */
 
             val serviceAlertActive =
@@ -837,9 +834,6 @@ private fun TrackingScreen(
 
     /*
      * Всплывающее окно подтверждения.
-     *
-     * Оно появляется поверх экрана
-     * отслеживания.
      */
 
     if (alertVisible) {
@@ -848,11 +842,8 @@ private fun TrackingScreen(
 
             onDismissRequest = {
                 /*
-                 * Простое закрытие окна
-                 * НЕ подтверждает событие.
-                 *
-                 * Поэтому здесь ничего
-                 * не делаем.
+                 * Закрытие системной кнопкой
+                 * НЕ считается подтверждением.
                  */
             },
 
@@ -874,11 +865,6 @@ private fun TrackingScreen(
 
                     onClick = {
 
-                        /*
-                         * Передаём подтверждение
-                         * сервису.
-                         */
-
                         val acknowledgeIntent =
                             Intent(
                                 context,
@@ -899,11 +885,6 @@ private fun TrackingScreen(
                         } catch (_: Exception) {
                         }
 
-
-                        /*
-                         * Скрываем окно
-                         * на экране.
-                         */
 
                         alertVisible = false
                     }
