@@ -4,9 +4,6 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.speech.tts.TextToSpeech
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,33 +13,16 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 
-/**
- * Тип оповещения.
- */
 enum class AlertType {
 
-    /**
-     * Автомобиль достиг заданной позиции
-     * или прошёл её скачком.
-     */
     POSITION,
 
-    /**
-     * До прогнозируемого вызова
-     * осталось заданное количество минут.
-     */
     FORECAST,
 
-    /**
-     * Сервер подтвердил фактический вызов.
-     */
     CALLED
 }
 
 
-/**
- * Данные активного оповещения.
- */
 data class QueueAlert(
 
     val type: AlertType,
@@ -54,16 +34,10 @@ data class QueueAlert(
 
 
 /**
- * Менеджер звуковых и голосовых оповещений.
+ * Менеджер фоновых звуковых и голосовых
+ * оповещений.
  *
- * Логика:
- *
- * 1. Сигнал.
- * 2. Голосовое сообщение.
- * 3. Всплывающее окно.
- * 4. Если пользователь не подтвердил —
- *    повтор через 60 секунд.
- * 5. После подтверждения повтор прекращается.
+ * Работает независимо от Activity.
  */
 class QueueAlertManager(
     private val context: Context
@@ -75,31 +49,33 @@ class QueueAlertManager(
         )
 
 
-    private var repeatJob: Job? = null
-
-
-    private var toneGenerator: ToneGenerator? =
+    private var repeatJob: Job? =
         null
 
 
-    private var textToSpeech: TextToSpeech? =
-        null
+    private var toneGenerator:
+        ToneGenerator? = null
 
 
-    var activeAlert by mutableStateOf<QueueAlert?>(null)
+    private var textToSpeech:
+        TextToSpeech? = null
+
+
+    var activeAlert:
+        QueueAlert? = null
         private set
 
 
     init {
 
-        initializeTextToSpeech()
-
         initializeToneGenerator()
+
+        initializeTextToSpeech()
     }
 
 
     /* ========================================================
-       ИНИЦИАЛИЗАЦИЯ TTS
+       TTS
        ======================================================== */
 
     private fun initializeTextToSpeech() {
@@ -110,22 +86,32 @@ class QueueAlertManager(
             ) { status ->
 
                 if (
-                    status == TextToSpeech.SUCCESS
+                    status ==
+                        TextToSpeech.SUCCESS
                 ) {
 
-                    textToSpeech?.language =
-                        Locale("ru", "RU")
+                    try {
 
-                    textToSpeech?.setSpeechRate(
-                        0.95f
-                    )
+                        textToSpeech?.language =
+                            Locale(
+                                "ru",
+                                "RU"
+                            )
+
+
+                        textToSpeech?.setSpeechRate(
+                            0.95f
+                        )
+
+                    } catch (_: Exception) {
+                    }
                 }
             }
     }
 
 
     /* ========================================================
-       ИНИЦИАЛИЗАЦИЯ ЗВУКА
+       ЗВУК
        ======================================================== */
 
     private fun initializeToneGenerator() {
@@ -134,7 +120,9 @@ class QueueAlertManager(
 
             toneGenerator =
                 ToneGenerator(
+
                     AudioManager.STREAM_NOTIFICATION,
+
                     100
                 )
 
@@ -153,15 +141,6 @@ class QueueAlertManager(
         type: AlertType,
         message: String
     ) {
-
-        /*
-         * Если уже есть активное
-         * неподтверждённое сообщение,
-         * новое сообщение не затираем.
-         *
-         * Оно будет обработано после
-         * подтверждения текущего.
-         */
 
         if (
             activeAlert != null
@@ -186,15 +165,17 @@ class QueueAlertManager(
 
         activeAlert =
             QueueAlert(
+
                 type = type,
+
                 title = title,
+
                 message = message
             )
 
 
         /*
-         * Первое оповещение
-         * происходит сразу.
+         * Первое оповещение сразу.
          */
 
         playAlert(
@@ -203,10 +184,8 @@ class QueueAlertManager(
 
 
         /*
-         * Затем повторяем
-         * каждые 60 секунд,
-         * пока пользователь
-         * не подтвердит.
+         * Повтор каждые 60 секунд
+         * до подтверждения.
          */
 
         repeatJob?.cancel()
@@ -217,18 +196,18 @@ class QueueAlertManager(
 
                 while (isActive) {
 
-                    delay(60_000)
+                    delay(
+                        60_000
+                    )
 
 
-                    if (
-                        activeAlert == null
-                    ) {
-                        break
-                    }
+                    val alert =
+                        activeAlert
+                            ?: break
 
 
                     playAlert(
-                        activeAlert!!.message
+                        alert.message
                     )
                 }
             }
@@ -243,14 +222,12 @@ class QueueAlertManager(
         message: String
     ) {
 
-        /*
-         * Сначала звуковой сигнал.
-         */
-
         try {
 
             toneGenerator?.startTone(
+
                 ToneGenerator.TONE_PROP_BEEP2,
+
                 700
             )
 
@@ -258,14 +235,12 @@ class QueueAlertManager(
         }
 
 
-        /*
-         * Небольшая пауза,
-         * затем голос.
-         */
-
         scope.launch {
 
-            delay(800)
+            delay(
+                800
+            )
+
 
             speak(
                 message
@@ -312,6 +287,7 @@ class QueueAlertManager(
 
         activeAlert = null
 
+
         try {
 
             textToSpeech?.stop()
@@ -322,7 +298,7 @@ class QueueAlertManager(
 
 
     /* ========================================================
-       СБРОС СЕАНСА
+       СБРОС
        ======================================================== */
 
     fun reset() {
@@ -333,6 +309,7 @@ class QueueAlertManager(
 
         activeAlert = null
 
+
         try {
 
             textToSpeech?.stop()
@@ -343,7 +320,7 @@ class QueueAlertManager(
 
 
     /* ========================================================
-       ОСВОБОЖДЕНИЕ РЕСУРСОВ
+       ОСВОБОЖДЕНИЕ
        ======================================================== */
 
     fun release() {
@@ -375,7 +352,6 @@ class QueueAlertManager(
 
 
         toneGenerator = null
-
 
         activeAlert = null
     }
