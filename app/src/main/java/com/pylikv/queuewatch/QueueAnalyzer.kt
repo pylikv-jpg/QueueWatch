@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -14,20 +15,86 @@ import kotlin.math.min
 /**
  * Анализатор электронной очереди QueueWatch.
  *
- * Скорость очереди НЕ рассчитывается по скачку order_id
- * конкретного автомобиля.
+ * Основная модель скорости:
  *
- * Скорость формируется из подтверждённых вызовов
- * автомобилей и сохраняется в статистике:
+ * 1. Историческая скорость:
+ *    КПП + тип транспорта + день недели + час.
  *
- * КПП + тип транспорта + день недели + час.
+ * 2. Сегментная статистика:
+ *    очередь условно делится на 10 сегментов.
+ *
+ * 3. Текущая скорость:
+ *    рассчитывается по реальным изменениям
+ *    позиций автомобилей.
+ *
+ * 4. Гибридный прогноз:
+ *    историческая модель + сегментная статистика
+ *    + ограниченная корректировка текущей скоростью.
+ *
+ * ВАЖНО:
+ *
+ * Текущая скорость НЕ является единственным
+ * источником прогноза.
  */
 class QueueAnalyzer(
     context: Context
 ) {
 
+    companion object {
+
+        /**
+         * Количество сегментов очереди.
+         */
+        private const val SEGMENT_COUNT = 10
+
+        /**
+         * Минимальное количество
+         * сегментных наблюдений.
+         */
+        private const val MIN_SEGMENT_SAMPLES = 5
+
+        /**
+         * Минимальное количество
+         * измерений текущей скорости.
+         */
+        private const val MIN_CURRENT_SPEED_SAMPLES = 2
+
+        /**
+         * Максимальный возраст
+         * измерения текущей скорости.
+         *
+         * 30 минут.
+         */
+        private const val CURRENT_SPEED_MAX_AGE =
+            30 * 60 * 1000L
+
+        /**
+         * Минимальный интервал между
+         * записями наблюдаемого часа.
+         */
+        private const val OBSERVATION_INTERVAL =
+            5 * 60 * 1000L
+
+        /**
+         * Максимальный размер истории
+         * одного автомобиля в памяти.
+         */
+        private const val MAX_HISTORY_POINTS = 100
+
+        /**
+         * Максимальная физически допустимая
+         * скорость для одного расчёта.
+         *
+         * Это защита от ошибочных скачков API.
+         */
+        private const val MAX_CURRENT_SPEED =
+            200.0
+    }
+
+
     private val appContext =
         context.applicationContext
+
 
     private val preferences =
         appContext.getSharedPreferences(
@@ -36,33 +103,69 @@ class QueueAnalyzer(
         )
 
 
-    /*
+    /**
      * История конкретных автомобилей.
+     *
+     * Хранится в памяти текущего запуска
+     * мониторинга.
      */
     private val history =
-        mutableMapOf<String, MutableList<QueueHistoryPoint>>()
+        mutableMapOf<
+            String,
+            MutableList<QueueHistoryPoint>
+        >()
 
 
-    /*
-     * Последняя серверная запись автомобиля.
+    /**
+     * Последняя серверная запись
+     * автомобиля.
      */
     private val previousVehicles =
-        mutableMapOf<String, QueueVehicle>()
+        mutableMapOf<
+            String,
+            QueueVehicle
+        >()
 
 
-    /*
-     * Уже обработанные события вызова.
+    /**
+     * Последнее количество автомобилей
+     * конкретного типа очереди.
+     */
+    private val previousQueueCounts =
+        mutableMapOf<VehicleType, Int>()
+
+
+    /**
+     * Последний момент наблюдения
+     * конкретного автомобиля.
+     */
+    private val previousObservationTime =
+        mutableMapOf<String, Long>()
+
+
+    /**
+     * Последняя рассчитанная
+     * текущая скорость.
      *
-     * Нужно для того, чтобы одна машина,
-     * присутствующая со status=3 несколько раз,
-     * не была посчитана несколько раз.
+     * Хранится отдельно для каждого
+     * типа транспорта.
+     */
+    private val currentSpeeds =
+        mutableMapOf<
+            VehicleType,
+            CurrentQueueSpeed
+        >()
+
+
+    /**
+     * Уже обработанные события вызова.
      */
     private val processedCallEvents =
         mutableSetOf<String>()
 
 
-    /*
-     * Нормализация номера.
+    /**
+     * Нормализация номера автомобиля.
      */
     private fun normalizeRegnum(
         value: String
@@ -77,7 +180,7 @@ class QueueAnalyzer(
 
 
     /**
-     * Разбор полного JSON.
+     * Разбор полного JSON очереди.
      */
     fun parseQueue(
         json: String
@@ -122,6 +225,9 @@ class QueueAnalyzer(
     }
 
 
+    /**
+     * Разбор одной очереди.
+     */
     private fun parseQueueArray(
         root: JSONObject,
         arrayName: String,
@@ -134,7 +240,10 @@ class QueueAnalyzer(
                 ?: JSONArray()
 
 
-        for (i in 0 until queue.length()) {
+        for (
+            i in
+            0 until queue.length()
+        ) {
 
             val item =
                 queue.optJSONObject(i)
@@ -148,14 +257,17 @@ class QueueAnalyzer(
                 ).trim()
 
 
-            if (regnum.isEmpty()) {
+            if (
+                regnum.isEmpty()
+            ) {
                 continue
             }
 
 
             result += QueueVehicle(
 
-                regnum = regnum,
+                regnum =
+                    regnum,
 
                 status =
                     readNullableInt(
@@ -194,6 +306,9 @@ class QueueAnalyzer(
     }
 
 
+    /**
+     * Чтение nullable Int.
+     */
     private fun readNullableInt(
         item: JSONObject,
         key: String
@@ -208,14 +323,16 @@ class QueueAnalyzer(
 
 
         return when (
-            val value = item.opt(key)
+            val value =
+                item.opt(key)
         ) {
 
             is Number ->
                 value.toInt()
 
             is String ->
-                value.trim().toIntOrNull()
+                value.trim()
+                    .toIntOrNull()
 
             else ->
                 null
@@ -223,6 +340,9 @@ class QueueAnalyzer(
     }
 
 
+    /**
+     * Чтение nullable String.
+     */
     private fun readNullableString(
         item: JSONObject,
         key: String
@@ -254,10 +374,14 @@ class QueueAnalyzer(
     ): QueueVehicle? {
 
         val target =
-            normalizeRegnum(regnum)
+            normalizeRegnum(
+                regnum
+            )
 
 
-        if (target.isEmpty()) {
+        if (
+            target.isEmpty()
+        ) {
             return null
         }
 
@@ -273,7 +397,7 @@ class QueueAnalyzer(
 
 
     /**
-     * Определение состояния.
+     * Определение состояния автомобиля.
      *
      * status=3 всегда имеет приоритет.
      */
@@ -284,6 +408,7 @@ class QueueAnalyzer(
         if (
             vehicle.status == 3
         ) {
+
             return VehicleState.CALLED
         }
 
@@ -291,6 +416,7 @@ class QueueAnalyzer(
         if (
             vehicle.orderId != null
         ) {
+
             return VehicleState.IN_QUEUE
         }
 
@@ -302,8 +428,13 @@ class QueueAnalyzer(
     /**
      * Обработка нового снимка.
      *
-     * Именно здесь формируется статистика
-     * фактически вызванных автомобилей.
+     * Здесь одновременно:
+     *
+     * - сохраняется история позиций;
+     * - фиксируется текущий размер очереди;
+     * - рассчитывается текущая скорость;
+     * - записывается статистика вызовов;
+     * - записывается сегментная статистика.
      */
     fun processSnapshot(
         json: String,
@@ -317,17 +448,17 @@ class QueueAnalyzer(
 
 
         /*
-         * Количество автомобилей каждого типа
-         * в текущем снимке.
-         *
-         * Используется для фиксации того,
-         * что час действительно наблюдался.
+         * Считаем количество автомобилей
+         * отдельно по каждому типу.
          */
         val currentCounts =
             mutableMapOf<VehicleType, Int>()
 
 
-        for (vehicle in vehicles) {
+        for (
+            vehicle in
+            vehicles
+        ) {
 
             currentCounts[
                 vehicle.vehicleType
@@ -337,7 +468,17 @@ class QueueAnalyzer(
                         vehicle.vehicleType
                     ] ?: 0
                 ) + 1
+        }
 
+
+        /*
+         * Обрабатываем историю каждого
+         * автомобиля.
+         */
+        for (
+            vehicle in
+            vehicles
+        ) {
 
             val normalizedRegnum =
                 normalizeRegnum(
@@ -357,52 +498,30 @@ class QueueAnalyzer(
                 ]
 
 
-            /*
-             * История позиции сохраняется
-             * исключительно как история.
-             *
-             * Она БОЛЬШЕ НЕ используется
-             * для вычисления скорости.
-             */
             if (
                 state ==
                     VehicleState.IN_QUEUE &&
                 vehicle.position != null
             ) {
 
-                val vehicleHistory =
-                    history.getOrPut(
-                        normalizedRegnum
-                    ) {
-                        mutableListOf()
-                    }
+                processVehiclePosition(
+                    checkpointName =
+                        checkpointName,
 
+                    vehicle =
+                        vehicle,
 
-                val lastPoint =
-                    vehicleHistory.lastOrNull()
+                    previous =
+                        previous,
 
+                    currentQueueCount =
+                        currentCounts[
+                            vehicle.vehicleType
+                        ] ?: 0,
 
-                if (
-                    lastPoint == null ||
-                    lastPoint.position !=
-                        vehicle.position
-                ) {
-
-                    vehicleHistory.add(
-
-                        QueueHistoryPoint(
-
-                            timestampMillis =
-                                timestampMillis,
-
-                            position =
-                                vehicle.position,
-
-                            state =
-                                VehicleState.IN_QUEUE
-                        )
-                    )
-                }
+                    timestampMillis =
+                        timestampMillis
+                )
             }
 
 
@@ -414,104 +533,77 @@ class QueueAnalyzer(
                     VehicleState.CALLED
             ) {
 
-                val eventKey =
-                    checkpointName +
-                        "|" +
-                        vehicle.vehicleType.name +
-                        "|" +
-                        normalizedRegnum
+                processCalledVehicle(
+                    checkpointName =
+                        checkpointName,
 
+                    vehicle =
+                        vehicle,
 
-                if (
-                    !processedCallEvents.contains(
-                        eventKey
-                    )
-                ) {
-
-                    processedCallEvents.add(
-                        eventKey
-                    )
-
-
-                    val vehicleHistory =
-                        history.getOrPut(
-                            normalizedRegnum
-                        ) {
-                            mutableListOf()
-                        }
-
-
-                    vehicleHistory.add(
-
-                        QueueHistoryPoint(
-
-                            timestampMillis =
-                                timestampMillis,
-
-                            position =
-                                vehicle.position,
-
-                            state =
-                                VehicleState.CALLED
-                        )
-                    )
-
-
-                    /*
-                     * Регистрируем фактический
-                     * вызов в статистике.
-                     */
-                    recordCalledVehicle(
-                        checkpointName =
-                            checkpointName,
-
-                        vehicle =
-                            vehicle,
-
-                        timestampMillis =
-                            timestampMillis
-                    )
-                }
+                    timestampMillis =
+                        timestampMillis
+                )
             }
 
 
             previousVehicles[
                 normalizedRegnum
-            ] = vehicle
+            ] =
+                vehicle
         }
 
 
         /*
-         * Фиксируем наблюдение текущего часа.
-         *
-         * Наличие snapshot означает,
-         * что этот час действительно наблюдался.
+         * Обновляем текущую скорость
+         * после обработки всех изменений.
+         */
+        for (
+            vehicleType
+            in VehicleType.values()
+        ) {
+
+            updateCurrentSpeed(
+                vehicleType =
+                    vehicleType,
+
+                currentQueueCount =
+                    currentCounts[
+                        vehicleType
+                    ] ?: 0,
+
+                timestampMillis =
+                    timestampMillis
+            )
+        }
+
+
+        /*
+         * Фиксируем наблюдение часа.
          */
         val calendar =
             Calendar.getInstance().apply {
+
                 timeInMillis =
                     timestampMillis
             }
 
 
         val dayOfWeek =
-            calendar.get(Calendar.DAY_OF_WEEK)
+            calendar.get(
+                Calendar.DAY_OF_WEEK
+            )
 
 
         val hour =
-            calendar.get(Calendar.HOUR_OF_DAY)
+            calendar.get(
+                Calendar.HOUR_OF_DAY
+            )
 
 
         for (
-            vehicleType in
-            VehicleType.values()
+            vehicleType
+            in VehicleType.values()
         ) {
-
-            val count =
-                currentCounts[
-                    vehicleType
-                ] ?: 0
-
 
             markHourObserved(
                 checkpointName =
@@ -524,10 +616,7 @@ class QueueAnalyzer(
                     dayOfWeek,
 
                 hour =
-                    hour,
-
-                queueCount =
-                    count
+                    hour
             )
         }
 
@@ -537,7 +626,856 @@ class QueueAnalyzer(
 
 
     /**
-     * Запись фактически вызванного автомобиля.
+     * Обработка изменения позиции
+     * конкретного автомобиля.
+     *
+     * Это НЕ используется как единственный
+     * источник прогноза.
+     *
+     * Изменение позиции используется
+     * для формирования:
+     *
+     * - текущей скорости;
+     * - сегментной статистики.
+     */
+    private fun processVehiclePosition(
+        checkpointName: String,
+        vehicle: QueueVehicle,
+        previous: QueueVehicle?,
+        currentQueueCount: Int,
+        timestampMillis: Long
+    ) {
+
+        val normalizedRegnum =
+            normalizeRegnum(
+                vehicle.regnum
+            )
+
+
+        val currentPosition =
+            vehicle.position
+                ?: return
+
+
+        val previousPosition =
+            previous?.position
+
+
+        val previousTime =
+            previousObservationTime[
+                normalizedRegnum
+            ]
+
+
+        /*
+         * Сохраняем историю позиции.
+         */
+        val vehicleHistory =
+            history.getOrPut(
+                normalizedRegnum
+            ) {
+                mutableListOf()
+            }
+
+
+        val lastPoint =
+            vehicleHistory.lastOrNull()
+
+
+        if (
+            lastPoint == null ||
+            lastPoint.position !=
+                currentPosition
+        ) {
+
+            vehicleHistory.add(
+
+                QueueHistoryPoint(
+
+                    timestampMillis =
+                        timestampMillis,
+
+                    position =
+                        currentPosition,
+
+                    state =
+                        VehicleState.IN_QUEUE
+                )
+            )
+
+
+            while (
+                vehicleHistory.size >
+                    MAX_HISTORY_POINTS
+            ) {
+
+                vehicleHistory.removeAt(
+                    0
+                )
+            }
+        }
+
+
+        /*
+         * Если предыдущей позиции нет,
+         * это первая точка наблюдения.
+         */
+        if (
+            previousPosition == null ||
+            previousTime == null
+        ) {
+
+            previousObservationTime[
+                normalizedRegnum
+            ] =
+                timestampMillis
+
+            return
+        }
+
+
+        /*
+         * Время между двумя наблюдениями.
+         */
+        val elapsedMillis =
+            timestampMillis -
+                previousTime
+
+
+        if (
+            elapsedMillis <= 0
+        ) {
+
+            previousObservationTime[
+                normalizedRegnum
+            ] =
+                timestampMillis
+
+            return
+        }
+
+
+        /*
+         * Если автомобиль ушёл назад,
+         * это не движение вперёд очереди.
+         *
+         * Не используем такое изменение
+         * для скорости.
+         */
+        val movedPositions =
+            previousPosition -
+                currentPosition
+
+
+        if (
+            movedPositions <= 0
+        ) {
+
+            previousObservationTime[
+                normalizedRegnum
+            ] =
+                timestampMillis
+
+            return
+        }
+
+
+        /*
+         * Защита от слишком большого
+         * скачка позиции.
+         *
+         * Сам скачок может быть реальным,
+         * поэтому мы не отбрасываем его полностью.
+         *
+         * Но скорость ограничивается
+         * физически разумным диапазоном.
+         */
+        val elapsedHours =
+            elapsedMillis /
+                3_600_000.0
+
+
+        if (
+            elapsedHours <= 0.0
+        ) {
+
+            previousObservationTime[
+                normalizedRegnum
+            ] =
+                timestampMillis
+
+            return
+        }
+
+
+        val rawSpeed =
+            movedPositions.toDouble() /
+                elapsedHours
+
+
+        if (
+            rawSpeed <= 0.0 ||
+            rawSpeed >
+                MAX_CURRENT_SPEED
+        ) {
+
+            previousObservationTime[
+                normalizedRegnum
+            ] =
+                timestampMillis
+
+            return
+        }
+
+
+        /*
+         * Записываем сегментную статистику.
+         *
+         * Если, например, автомобиль:
+         *
+         * 100 -> 95
+         *
+         * за 10 минут,
+         *
+         * то 10 минут распределяются
+         * между пятью пройденными позициями.
+         */
+        recordSegmentMovement(
+            checkpointName =
+                checkpointName,
+
+            vehicle =
+                vehicle,
+
+            fromPosition =
+                previousPosition,
+
+            toPosition =
+                currentPosition,
+
+            queueCount =
+                max(
+                    currentQueueCount,
+                    max(
+                        previousPosition,
+                        currentPosition
+                    )
+                ),
+
+            elapsedMinutes =
+                elapsedMillis /
+                    60_000.0,
+
+            timestampMillis =
+                timestampMillis
+        )
+
+
+        /*
+         * Текущая скорость.
+         *
+         * Используем сглаживание:
+         *
+         * новая скорость = 30%
+         * старой + 70% нового измерения.
+         *
+         * Это временная скорость,
+         * а не историческая.
+         */
+        updateCurrentSpeedFromMeasurement(
+            vehicleType =
+                vehicle.vehicleType,
+
+            measuredSpeed =
+                rawSpeed,
+
+            timestampMillis =
+                timestampMillis
+        )
+
+
+        previousObservationTime[
+            normalizedRegnum
+        ] =
+            timestampMillis
+    }
+
+
+    /**
+     * Запись движения автомобиля
+     * по сегментам очереди.
+     */
+    private fun recordSegmentMovement(
+        checkpointName: String,
+        vehicle: QueueVehicle,
+        fromPosition: Int,
+        toPosition: Int,
+        queueCount: Int,
+        elapsedMinutes: Double,
+        timestampMillis: Long
+    ) {
+
+        if (
+            elapsedMinutes <= 0.0
+        ) {
+            return
+        }
+
+
+        val movedPositions =
+            fromPosition -
+                toPosition
+
+
+        if (
+            movedPositions <= 0
+        ) {
+            return
+        }
+
+
+        val minutesPerPosition =
+            elapsedMinutes /
+                movedPositions.toDouble()
+
+
+        /*
+         * Распределяем каждую пройденную
+         * позицию по соответствующему сегменту.
+         */
+        for (
+            position
+            in toPosition until fromPosition
+        ) {
+
+            val segment =
+                calculateSegment(
+                    position =
+                        position,
+
+                    queueCount =
+                        queueCount
+                )
+
+
+            addSegmentSample(
+                checkpointName =
+                    checkpointName,
+
+                vehicleType =
+                    vehicle.vehicleType,
+
+                segment =
+                    segment,
+
+                timestampMillis =
+                    timestampMillis,
+
+                minutesPerPosition =
+                    minutesPerPosition
+            )
+        }
+    }
+
+
+    /**
+     * Определение сегмента очереди.
+     */
+    private fun calculateSegment(
+        position: Int,
+        queueCount: Int
+    ): Int {
+
+        if (
+            queueCount <= 0
+        ) {
+            return 0
+        }
+
+
+        val safePosition =
+            position.coerceIn(
+                1,
+                queueCount
+            )
+
+
+        /*
+         * Позиция 1 находится
+         * ближе всего к началу очереди.
+         *
+         * Поэтому:
+         *
+         * 1 / 100 -> сегмент 0
+         * 100 / 100 -> сегмент 9
+         */
+        val fraction =
+            safePosition.toDouble() /
+                queueCount.toDouble()
+
+
+        return min(
+            SEGMENT_COUNT - 1,
+            max(
+                0,
+                (
+                    fraction *
+                        SEGMENT_COUNT
+                ).toInt()
+            )
+        )
+    }
+
+
+    /**
+     * Добавление одного фактического
+     * наблюдения сегмента.
+     *
+     * Статистика хранится отдельно:
+     *
+     * КПП
+     * + тип транспорта
+     * + день недели
+     * + час
+     * + сегмент.
+     */
+    private fun addSegmentSample(
+        checkpointName: String,
+        vehicleType: VehicleType,
+        segment: Int,
+        timestampMillis: Long,
+        minutesPerPosition: Double
+    ) {
+
+        if (
+            minutesPerPosition <= 0.0
+        ) {
+            return
+        }
+
+
+        val calendar =
+            Calendar.getInstance().apply {
+
+                timeInMillis =
+                    timestampMillis
+            }
+
+
+        val dayOfWeek =
+            calendar.get(
+                Calendar.DAY_OF_WEEK
+            )
+
+
+        val hour =
+            calendar.get(
+                Calendar.HOUR_OF_DAY
+            )
+
+
+        val key =
+            buildSegmentKey(
+                checkpointName =
+                    checkpointName,
+
+                vehicleType =
+                    vehicleType,
+
+                dayOfWeek =
+                    dayOfWeek,
+
+                hour =
+                    hour,
+
+                segment =
+                    segment
+            )
+
+
+        val current =
+            loadSegment(
+                key
+            )
+
+
+        val updated =
+            current.copy(
+
+                totalMinutes =
+                    current.totalMinutes +
+                        minutesPerPosition,
+
+                positionSamples =
+                    current.positionSamples +
+                        1
+            )
+
+
+        saveSegment(
+            key,
+            updated
+        )
+    }
+
+
+    /**
+     * Получение сегментной статистики
+     * для текущего дня/часа.
+     */
+    private fun getCurrentSegmentStats(
+        checkpointName: String,
+        vehicleType: VehicleType,
+        timestampMillis: Long
+    ): Map<
+        Int,
+        HybridForecastEngine.SegmentStat
+    > {
+
+        val calendar =
+            Calendar.getInstance().apply {
+
+                timeInMillis =
+                    timestampMillis
+            }
+
+
+        val dayOfWeek =
+            calendar.get(
+                Calendar.DAY_OF_WEEK
+            )
+
+
+        val hour =
+            calendar.get(
+                Calendar.HOUR_OF_DAY
+            )
+
+
+        val result =
+            mutableMapOf<
+                Int,
+                HybridForecastEngine.SegmentStat
+            >()
+
+
+        for (
+            segment
+            in 0 until SEGMENT_COUNT
+        ) {
+
+            val key =
+                buildSegmentKey(
+                    checkpointName =
+                        checkpointName,
+
+                    vehicleType =
+                        vehicleType,
+
+                    dayOfWeek =
+                        dayOfWeek,
+
+                    hour =
+                        hour,
+
+                    segment =
+                        segment
+                )
+
+
+            val stat =
+                loadSegment(
+                    key
+                )
+
+
+            val minutesPerPosition =
+                stat.minutesPerPosition
+
+
+            if (
+                minutesPerPosition != null &&
+                stat.positionSamples >=
+                    MIN_SEGMENT_SAMPLES
+            ) {
+
+                result[
+                    segment
+                ] =
+                    HybridForecastEngine
+                        .SegmentStat(
+
+                            minutesPerPosition =
+                                minutesPerPosition,
+
+                            samples =
+                                stat.positionSamples
+                        )
+            }
+        }
+
+
+        return result
+    }
+
+
+    /**
+     * Обновление текущей скорости
+     * по изменению размера очереди.
+     *
+     * Используется как дополнительный
+     * источник текущего состояния.
+     */
+    private fun updateCurrentSpeed(
+        vehicleType: VehicleType,
+        currentQueueCount: Int,
+        timestampMillis: Long
+    ) {
+
+        val previousCount =
+            previousQueueCounts[
+                vehicleType
+            ]
+
+
+        previousQueueCounts[
+            vehicleType
+        ] =
+            currentQueueCount
+
+
+        /*
+         * Само изменение количества
+         * автомобилей в очереди нельзя
+         * напрямую считать скоростью:
+         *
+         * машины могут одновременно
+         * добавляться и вызываться.
+         *
+         * Поэтому здесь только обновляем
+         * базовое состояние.
+         */
+        if (
+            previousCount == null
+        ) {
+            return
+        }
+    }
+
+
+    /**
+     * Обновление текущей скорости
+     * по фактическому движению автомобиля.
+     */
+    private fun updateCurrentSpeedFromMeasurement(
+        vehicleType: VehicleType,
+        measuredSpeed: Double,
+        timestampMillis: Long
+    ) {
+
+        if (
+            measuredSpeed <= 0.0 ||
+            measuredSpeed >
+                MAX_CURRENT_SPEED
+        ) {
+            return
+        }
+
+
+        val previous =
+            currentSpeeds[
+                vehicleType
+            ]
+
+
+        val smoothed =
+            if (
+                previous != null &&
+                previous.samples > 0
+            ) {
+
+                /*
+                 * Сглаживание.
+                 *
+                 * 70% новое измерение
+                 * 30% предыдущая оценка.
+                 */
+                previous.positionsPerHour *
+                    0.30 +
+                    measuredSpeed *
+                    0.70
+
+            } else {
+
+                measuredSpeed
+            }
+
+
+        val samples =
+            (
+                previous?.samples ?: 0
+            ) + 1
+
+
+        currentSpeeds[
+            vehicleType
+        ] =
+            CurrentQueueSpeed(
+
+                positionsPerHour =
+                    smoothed,
+
+                samples =
+                    samples,
+
+                timestampMillis =
+                    timestampMillis
+            )
+    }
+
+
+    /**
+     * Получение текущей скорости.
+     *
+     * Если данные слишком старые —
+     * возвращаем null.
+     */
+    private fun getCurrentSpeed(
+        vehicleType: VehicleType,
+        timestampMillis: Long
+    ): Double? {
+
+        val current =
+            currentSpeeds[
+                vehicleType
+            ]
+                ?: return null
+
+
+        if (
+            current.samples <
+                MIN_CURRENT_SPEED_SAMPLES
+        ) {
+            return null
+        }
+
+
+        if (
+            timestampMillis -
+                current.timestampMillis >
+                CURRENT_SPEED_MAX_AGE
+        ) {
+            return null
+        }
+
+
+        return current.positionsPerHour
+            .takeIf {
+                it > 0.0
+            }
+    }
+
+
+    /**
+     * Регистрация подтверждённого
+     * вызова автомобиля.
+     */
+    private fun processCalledVehicle(
+        checkpointName: String,
+        vehicle: QueueVehicle,
+        timestampMillis: Long
+    ) {
+
+        val normalizedRegnum =
+            normalizeRegnum(
+                vehicle.regnum
+            )
+
+
+        val eventKey =
+            checkpointName +
+                "|" +
+                vehicle.vehicleType.name +
+                "|" +
+                normalizedRegnum +
+                "|" +
+                (
+                    vehicle.registrationDate
+                        ?: ""
+                )
+
+
+        if (
+            processedCallEvents.contains(
+                eventKey
+            )
+        ) {
+            return
+        }
+
+
+        processedCallEvents.add(
+            eventKey
+        )
+
+
+        /*
+         * Сохраняем историю вызова.
+         */
+        val vehicleHistory =
+            history.getOrPut(
+                normalizedRegnum
+            ) {
+                mutableListOf()
+            }
+
+
+        vehicleHistory.add(
+
+            QueueHistoryPoint(
+
+                timestampMillis =
+                    timestampMillis,
+
+                position =
+                    vehicle.position,
+
+                state =
+                    VehicleState.CALLED
+            )
+        )
+
+
+        while (
+            vehicleHistory.size >
+                MAX_HISTORY_POINTS
+        ) {
+
+            vehicleHistory.removeAt(
+                0
+            )
+        }
+
+
+        /*
+         * Статистика вызова.
+         */
+        recordCalledVehicle(
+            checkpointName =
+                checkpointName,
+
+            vehicle =
+                vehicle,
+
+            timestampMillis =
+                timestampMillis
+        )
+    }
+
+
+    /**
+     * Запись статистики фактического
+     * вызова.
      */
     private fun recordCalledVehicle(
         checkpointName: String,
@@ -547,17 +1485,22 @@ class QueueAnalyzer(
 
         val calendar =
             Calendar.getInstance().apply {
+
                 timeInMillis =
                     timestampMillis
             }
 
 
         val dayOfWeek =
-            calendar.get(Calendar.DAY_OF_WEEK)
+            calendar.get(
+                Calendar.DAY_OF_WEEK
+            )
 
 
         val hour =
-            calendar.get(Calendar.HOUR_OF_DAY)
+            calendar.get(
+                Calendar.HOUR_OF_DAY
+            )
 
 
         val key =
@@ -570,21 +1513,11 @@ class QueueAnalyzer(
 
 
         val current =
-            loadCell(key)
+            loadCell(
+                key
+            )
 
 
-        /*
-         * Пытаемся определить фактическое
-         * время ожидания.
-         *
-         * ВАЖНО:
-         * changed_date здесь НЕ считаем
-         * временем вызова автоматически.
-         *
-         * Время вызова берём из момента,
-         * когда приложение впервые увидело
-         * подтверждённый status=3.
-         */
         val waitingMinutes =
             calculateWaitingMinutes(
                 vehicle.registrationDate,
@@ -602,8 +1535,11 @@ class QueueAnalyzer(
                     if (
                         waitingMinutes != null
                     ) {
+
                         current.waitingSamples + 1
+
                     } else {
+
                         current.waitingSamples
                     },
 
@@ -624,8 +1560,9 @@ class QueueAnalyzer(
 
 
     /**
-     * Регистрация -> фактический момент,
-     * когда status=3 впервые был замечен.
+     * Расчёт фактического времени
+     * от регистрации до обнаружения
+     * status=3.
      */
     private fun calculateWaitingMinutes(
         registrationDate: String?,
@@ -663,14 +1600,17 @@ class QueueAnalyzer(
             if (
                 difference <= 0
             ) {
+
                 null
+
             } else {
+
                 difference /
                     60_000.0
             }
 
         } catch (
-            e: Exception
+            _: Exception
         ) {
 
             null
@@ -685,8 +1625,7 @@ class QueueAnalyzer(
         checkpointName: String,
         vehicleType: VehicleType,
         dayOfWeek: Int,
-        hour: Int,
-        queueCount: Int
+        hour: Int
     ) {
 
         val key =
@@ -698,23 +1637,6 @@ class QueueAnalyzer(
             )
 
 
-        val current =
-            loadCell(key)
-
-
-        /*
-         * Один вызов processSnapshot()
-         * не должен бесконечно увеличивать
-         * observedCount при каждом обновлении.
-         *
-         * Поэтому observedCount здесь означает
-         * количество отдельных запусков наблюдения
-         * в этом часу.
-         *
-         * Для 20-секундных запросов используем
-         * максимум одно наблюдение примерно
-         * раз в 5 минут.
-         */
         val lastObservedKey =
             "${key}_last_observed"
 
@@ -733,7 +1655,7 @@ class QueueAnalyzer(
         if (
             now -
                 previousTime <
-                5 * 60 * 1000L
+                OBSERVATION_INTERVAL
         ) {
             return
         }
@@ -745,6 +1667,12 @@ class QueueAnalyzer(
                 now
             )
             .apply()
+
+
+        val current =
+            loadCell(
+                key
+            )
 
 
         saveCell(
@@ -761,7 +1689,8 @@ class QueueAnalyzer(
 
 
     /**
-     * Получение статистики конкретной ячейки.
+     * Получение статистики конкретной
+     * ячейки.
      */
     fun getStatistics(
         checkpointName: String,
@@ -771,6 +1700,7 @@ class QueueAnalyzer(
     ): QueueStatisticsCell {
 
         return loadCell(
+
             buildCellKey(
                 checkpointName,
                 vehicleType,
@@ -782,9 +1712,8 @@ class QueueAnalyzer(
 
 
     /**
-     * Средняя фактическая скорость
-     * по всей накопленной статистике
-     * данного КПП и типа транспорта.
+     * Средняя историческая скорость
+     * по всему накопленному архиву.
      */
     private fun getGlobalSpeed(
         checkpointName: String,
@@ -800,13 +1729,14 @@ class QueueAnalyzer(
 
 
         for (
-            day in
-            Calendar.SUNDAY..Calendar.SATURDAY
+            day
+            in Calendar.SUNDAY..
+                Calendar.SATURDAY
         ) {
 
             for (
-                hour in
-                0..23
+                hour
+                in 0..23
             ) {
 
                 val cell =
@@ -840,36 +1770,26 @@ class QueueAnalyzer(
                 totalObservedHours
 
 
-        return if (
-            speed > 0
-        ) {
-            speed
-        } else {
-            /*
-             * Если наблюдаемые часы были,
-             * но машин не прошло,
-             * глобальная скорость действительно 0.
-             */
-            0.0
-        }
+        return speed
+            .takeIf {
+                it > 0.0
+            }
     }
 
 
     /**
-     * Скорость для конкретного часа.
+     * Историческая скорость
+     * для текущего дня и часа.
      *
-     * Если этот час уже наблюдался,
-     * его собственная статистика имеет приоритет.
-     *
-     * Если данных ещё нет —
-     * используем накопленную общую скорость.
+     * Если собственной статистики
+     * ещё нет — используется глобальная.
      */
-    private fun getSpeedForHour(
+    private fun getHistoricalSpeed(
         checkpointName: String,
         vehicleType: VehicleType,
         dayOfWeek: Int,
         hour: Int
-    ): HourlySpeed {
+    ): Double? {
 
         val cell =
             getStatistics(
@@ -881,56 +1801,62 @@ class QueueAnalyzer(
 
 
         if (
-            cell.observedCount > 0
+            cell.observedCount > 0 &&
+            cell.callsPerObservedHour > 0.0
         ) {
 
-            return HourlySpeed(
-
-                dayOfWeek =
-                    dayOfWeek,
-
-                hour =
-                    hour,
-
-                positionsPerHour =
-                    cell.callsPerObservedHour,
-
-                observed =
-                    true
-            )
+            return cell.callsPerObservedHour
         }
 
 
-        val global =
-            getGlobalSpeed(
-                checkpointName,
-                vehicleType
-            )
-
-
-        return HourlySpeed(
-
-            dayOfWeek =
-                dayOfWeek,
-
-            hour =
-                hour,
-
-            positionsPerHour =
-                global ?: 0.0,
-
-            observed =
-                false
+        return getGlobalSpeed(
+            checkpointName,
+            vehicleType
         )
     }
 
 
     /**
-     * Рассчитывает прогноз,
-     * проходя по часам вперёд.
-     *
-     * Поэтому час со скоростью 0
-     * автоматически добавляет время ожидания.
+     * Получение исторической скорости
+     * для текущего момента.
+     */
+    private fun getHistoricalSpeedNow(
+        checkpointName: String,
+        vehicleType: VehicleType,
+        timestampMillis: Long
+    ): Double? {
+
+        val calendar =
+            Calendar.getInstance().apply {
+
+                timeInMillis =
+                    timestampMillis
+            }
+
+
+        return getHistoricalSpeed(
+
+            checkpointName =
+                checkpointName,
+
+            vehicleType =
+                vehicleType,
+
+            dayOfWeek =
+                calendar.get(
+                    Calendar.DAY_OF_WEEK
+                ),
+
+            hour =
+                calendar.get(
+                    Calendar.HOUR_OF_DAY
+                )
+        )
+    }
+
+
+    /**
+     * Расчёт гибридного прогноза.
      */
     fun calculateForecast(
         regnum: String,
@@ -947,7 +1873,9 @@ class QueueAnalyzer(
 
 
         if (
-            determineState(vehicle) !=
+            determineState(
+                vehicle
+            ) !=
                 VehicleState.IN_QUEUE
         ) {
             return null
@@ -991,202 +1919,108 @@ class QueueAnalyzer(
             vehicle.vehicleType
 
 
-        var remaining =
-            positionsAhead.toDouble()
-
-
-        var totalMinutes =
-            0.0
-
-
-        var cursor =
-            Calendar.getInstance()
+        val timestampMillis =
+            System.currentTimeMillis()
 
 
         /*
-         * Максимальная глубина расчёта —
-         * 14 суток, чтобы исключить бесконечный цикл.
+         * Количество автомобилей
+         * именно этого типа.
+         *
+         * Если текущего значения нет,
+         * используем минимум текущей позиции.
          */
-        var safety =
-            0
+        val queueCount =
+            max(
+                currentQueueCountForType(
+                    vehicleType
+                ),
+                currentPosition
+            )
 
 
-        var firstSpeed: Double? =
-            null
+        /*
+         * Историческая скорость.
+         */
+        val historicalSpeed =
+            getHistoricalSpeedNow(
+
+                checkpointName =
+                    checkpointName,
+
+                vehicleType =
+                    vehicleType,
+
+                timestampMillis =
+                    timestampMillis
+            )
 
 
-        while (
-            remaining > 0 &&
-            safety < 336
-        ) {
+        /*
+         * Фактическая текущая скорость.
+         */
+        val currentSpeed =
+            getCurrentSpeed(
 
-            safety++
+                vehicleType =
+                    vehicleType,
 
-
-            val dayOfWeek =
-                cursor.get(
-                    Calendar.DAY_OF_WEEK
-                )
-
-
-            val hour =
-                cursor.get(
-                    Calendar.HOUR_OF_DAY
-                )
+                timestampMillis =
+                    timestampMillis
+            )
 
 
-            val minute =
-                cursor.get(
-                    Calendar.MINUTE
-                )
+        /*
+         * Сегментная статистика
+         * текущего дня/часа.
+         */
+        val segmentStats =
+            getCurrentSegmentStats(
+
+                checkpointName =
+                    checkpointName,
+
+                vehicleType =
+                    vehicleType,
+
+                timestampMillis =
+                    timestampMillis
+            )
 
 
-            val second =
-                cursor.get(
-                    Calendar.SECOND
-                )
+        /*
+         * Передаём всё в гибридный двигатель.
+         */
+        val result =
+            HybridForecastEngine.estimate(
 
+                currentPosition =
+                    currentPosition,
 
-            val secondsPassed =
-                minute * 60 +
-                    second
+                queueCount =
+                    queueCount,
 
+                historicalSpeed =
+                    historicalSpeed,
 
-            val minutesLeftInHour =
-                (
-                    3600 -
-                        secondsPassed
-                ) / 60.0
+                currentSpeed =
+                    currentSpeed,
 
-
-            val hourly =
-                getSpeedForHour(
-
-                    checkpointName =
-                        checkpointName,
-
-                    vehicleType =
-                        vehicleType,
-
-                    dayOfWeek =
-                        dayOfWeek,
-
-                    hour =
-                        hour
-                )
-
-
-            val speed =
-                hourly.positionsPerHour
-
-
-            if (
-                firstSpeed == null
-            ) {
-                firstSpeed = speed
-            }
-
-
-            /*
-             * Пересменка / остановка.
-             *
-             * В этом часу машины не проходят.
-             */
-            if (
-                speed <= 0.0
-            ) {
-
-                totalMinutes +=
-                    minutesLeftInHour
-
-                cursor.add(
-                    Calendar.HOUR_OF_DAY,
-                    1
-                )
-
-                cursor.set(
-                    Calendar.MINUTE,
-                    0
-                )
-
-                cursor.set(
-                    Calendar.SECOND,
-                    0
-                )
-
-                continue
-            }
-
-
-            val capacityThisHour =
-                speed *
-                    (
-                        minutesLeftInHour /
-                            60.0
-                    )
-
-
-            if (
-                remaining <=
-                    capacityThisHour
-            ) {
-
-                val neededMinutes =
-                    remaining /
-                        speed *
-                        60.0
-
-
-                totalMinutes +=
-                    neededMinutes
-
-
-                remaining = 0.0
-
-            } else {
-
-                remaining -=
-                    capacityThisHour
-
-
-                totalMinutes +=
-                    minutesLeftInHour
-
-
-                cursor.add(
-                    Calendar.HOUR_OF_DAY,
-                    1
-                )
-
-                cursor.set(
-                    Calendar.MINUTE,
-                    0
-                )
-
-                cursor.set(
-                    Calendar.SECOND,
-                    0
-                )
-            }
-        }
+                segmentStats =
+                    segmentStats
+            )
 
 
         if (
-            remaining > 0
+            result.estimatedMinutes <= 0.0
         ) {
+
             return null
         }
 
 
         val effectiveSpeed =
-            if (
-                firstSpeed != null &&
-                firstSpeed > 0
-            ) {
-                firstSpeed
-            } else {
-                null
-            }
+            result.effectiveSpeed
 
 
         val speed =
@@ -1198,7 +2032,17 @@ class QueueAnalyzer(
                         it,
 
                     minutesPerPosition =
-                        60.0 / it
+                        if (
+                            it > 0.0
+                        ) {
+
+                            60.0 /
+                                it
+
+                        } else {
+
+                            0.0
+                        }
                 )
             }
 
@@ -1215,80 +2059,50 @@ class QueueAnalyzer(
                 speed,
 
             estimatedMinutes =
-                totalMinutes
+                result.estimatedMinutes
         )
     }
 
 
     /**
-     * Совместимость со старым кодом.
-     *
-     * Старый расчёт скорости по позициям
-     * намеренно отключён.
+     * Текущее количество автомобилей
+     * конкретного типа.
      */
-    fun calculateVehicleSpeed(
-        regnum: String
-    ): QueueSpeed? {
+    private fun currentQueueCountForType(
+        vehicleType: VehicleType
+    ): Int {
 
-        return null
+        var count =
+            0
+
+
+        for (
+            vehicle
+            in previousVehicles.values
+        ) {
+
+            if (
+                vehicle.vehicleType ==
+                    vehicleType &&
+                determineState(
+                    vehicle
+                ) ==
+                    VehicleState.IN_QUEUE
+            ) {
+
+                count++
+            }
+        }
+
+
+        return count
     }
 
 
     /**
-     * История автомобиля.
+     * Формирование ключа статистики
+     * часового интервала.
      */
-    fun getHistory(
-        regnum: String
-    ): List<QueueHistoryPoint> {
-
-        return history[
-            normalizeRegnum(
-                regnum
-            )
-        ]
-            ?.toList()
-            ?: emptyList()
-    }
-
-
-    fun getPreviousVehicle(
-        regnum: String
-    ): QueueVehicle? {
-
-        return previousVehicles[
-            normalizeRegnum(
-                regnum
-            )
-        ]
-    }
-
-
-    fun getTrackedVehicleCount(): Int {
-        return history.size
-    }
-
-
-    /**
-     * Очищает только текущий сеанс.
-     *
-     * Недельная статистика НЕ удаляется.
-     */
-    fun reset() {
-
-        history.clear()
-
-        previousVehicles.clear()
-
-        processedCallEvents.clear()
-    }
-
-
-    /*
-     * ========================================================
-     * PERSISTENT STATISTICS
-     * ========================================================
-     */
-
     private fun buildCellKey(
         checkpointName: String,
         vehicleType: VehicleType,
@@ -1307,6 +2121,34 @@ class QueueAnalyzer(
     }
 
 
+    /**
+     * Формирование ключа сегментной
+     * статистики.
+     */
+    private fun buildSegmentKey(
+        checkpointName: String,
+        vehicleType: VehicleType,
+        dayOfWeek: Int,
+        hour: Int,
+        segment: Int
+    ): String {
+
+        return "segment|" +
+            checkpointName +
+            "|" +
+            vehicleType.name +
+            "|" +
+            dayOfWeek +
+            "|" +
+            hour +
+            "|" +
+            segment
+    }
+
+
+    /**
+     * Загрузка часовой статистики.
+     */
     private fun loadCell(
         key: String
     ): QueueStatisticsCell {
@@ -1327,7 +2169,7 @@ class QueueAnalyzer(
 
             calledCount =
                 preferences.getInt(
-                    "${key}_calls",
+                    "${key}_called",
                     0
                 ),
 
@@ -1345,13 +2187,16 @@ class QueueAnalyzer(
 
             waitingSamples =
                 preferences.getInt(
-                    "${key}_waiting_samples",
+                    "${key}_samples",
                     0
                 )
         )
     }
 
 
+    /**
+     * Сохранение часовой статистики.
+     */
     private fun saveCell(
         key: String,
         cell: QueueStatisticsCell
@@ -1370,7 +2215,7 @@ class QueueAnalyzer(
             )
 
             .putInt(
-                "${key}_calls",
+                "${key}_called",
                 cell.calledCount
             )
 
@@ -1381,14 +2226,98 @@ class QueueAnalyzer(
 
             .putFloat(
                 "${key}_waiting",
-                cell.totalWaitingMinutes.toFloat()
+                cell.totalWaitingMinutes
+                    .toFloat()
             )
 
             .putInt(
-                "${key}_waiting_samples",
+                "${key}_samples",
                 cell.waitingSamples
             )
 
             .apply()
+    }
+
+
+    /**
+     * Загрузка статистики сегмента.
+     */
+    private fun loadSegment(
+        key: String
+    ): QueueSegmentStatistics {
+
+        return QueueSegmentStatistics(
+
+            segment =
+                preferences.getInt(
+                    "${key}_segment",
+                    0
+                ),
+
+            totalMinutes =
+                preferences.getFloat(
+                    "${key}_minutes",
+                    0f
+                ).toDouble(),
+
+            positionSamples =
+                preferences.getInt(
+                    "${key}_samples",
+                    0
+                )
+        )
+    }
+
+
+    /**
+     * Сохранение статистики сегмента.
+     */
+    private fun saveSegment(
+        key: String,
+        statistics:
+            QueueSegmentStatistics
+    ) {
+
+        preferences.edit()
+
+            .putInt(
+                "${key}_segment",
+                statistics.segment
+            )
+
+            .putFloat(
+                "${key}_minutes",
+                statistics.totalMinutes
+                    .toFloat()
+            )
+
+            .putInt(
+                "${key}_samples",
+                statistics.positionSamples
+            )
+
+            .apply()
+    }
+
+
+    /**
+     * Полный сброс только временного
+     * состояния анализатора.
+     *
+     * Накопленную статистику НЕ удаляем.
+     */
+    fun reset() {
+
+        history.clear()
+
+        previousVehicles.clear()
+
+        previousQueueCounts.clear()
+
+        previousObservationTime.clear()
+
+        currentSpeeds.clear()
+
+        processedCallEvents.clear()
     }
 }
