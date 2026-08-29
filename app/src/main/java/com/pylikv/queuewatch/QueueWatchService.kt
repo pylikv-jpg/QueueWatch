@@ -84,6 +84,9 @@ class QueueWatchService : Service() {
 
         private const val UPDATE_INTERVAL =
             20_000L
+
+        private const val ALERT_NOTIFICATION_UPDATE_INTERVAL =
+            60_000L
     }
 
 
@@ -97,16 +100,16 @@ class QueueWatchService : Service() {
         null
 
 
-    private var alertJob: Job? =
+    private var alertNotificationJob: Job? =
         null
 
 
-    private var alertManager: QueueAlertManager? =
-        null
+    private var alertManager:
+        QueueAlertManager? = null
 
 
-    private var wakeLock: PowerManager.WakeLock? =
-        null
+    private var wakeLock:
+        PowerManager.WakeLock? = null
 
 
     private lateinit var preferences:
@@ -143,11 +146,8 @@ class QueueWatchService : Service() {
 
 
         /*
-         * Не даём CPU заснуть во время
-         * активного мониторинга.
-         *
-         * Это особенно важно при
-         * заблокированном экране.
+         * Не даём CPU полностью заснуть
+         * во время активного мониторинга.
          */
 
         try {
@@ -231,6 +231,13 @@ class QueueWatchService : Service() {
             )
 
 
+        /*
+         * Если сервис был перезапущен
+         * с новыми параметрами,
+         * старый цикл мониторинга
+         * останавливаем.
+         */
+
         monitoringJob?.cancel()
 
 
@@ -293,13 +300,11 @@ class QueueWatchService : Service() {
 
 
         /*
-         * ВАЖНО:
+         * Сбрасываем только состояние
+         * текущего сеанса анализатора.
          *
-         * reset() очищает только
-         * текущий сеанс.
-         *
-         * Накопленная статистика
-         * 7×24 сохраняется.
+         * Историческая статистика
+         * сохраняется.
          */
 
         analyzer.reset()
@@ -313,13 +318,35 @@ class QueueWatchService : Service() {
             false
 
 
+        /*
+         * Событие пересечения позиции.
+         *
+         * true:
+         * текущий порог уже был достигнут
+         * и повторно тревожить до выхода
+         * из порога не нужно.
+         *
+         * false:
+         * можно сформировать новое событие.
+         */
+
         var positionAlertTriggered =
             false
 
 
+        /*
+         * Аналогичное состояние
+         * для временного прогноза.
+         */
+
         var forecastAlertTriggered =
             false
 
+
+        /*
+         * Фактический вызов автомобиля
+         * является одноразовым состоянием.
+         */
 
         var calledAlertTriggered =
             false
@@ -441,16 +468,11 @@ class QueueWatchService : Service() {
                         )
                     },
 
-                    onFailure = { error ->
+                    onFailure = {
 
                         /*
-                         * КРИТИЧЕСКИ ВАЖНО:
-                         *
                          * Ошибка одного запроса
                          * НЕ останавливает мониторинг.
-                         *
-                         * Через 20 секунд будет
-                         * следующая попытка.
                          */
 
                         saveMessage(
@@ -460,11 +482,12 @@ class QueueWatchService : Service() {
                     }
                 )
 
-            } catch (e: Exception) {
+            } catch (_: Exception) {
 
                 /*
                  * Любая ошибка обработки
-                 * также НЕ завершает цикл.
+                 * также не должна завершать
+                 * основной цикл мониторинга.
                  */
 
                 saveMessage(
@@ -561,12 +584,12 @@ class QueueWatchService : Service() {
                 )
 
 
-            if (vehicle == null) {
+            /*
+             * Временное отсутствие автомобиля
+             * НЕ означает вызов.
+             */
 
-                /*
-                 * Отсутствие автомобиля
-                 * НЕ является вызовом.
-                 */
+            if (vehicle == null) {
 
                 if (!vehicleWasConfirmed) {
 
@@ -605,6 +628,10 @@ class QueueWatchService : Service() {
 
             when (state) {
 
+                /* =================================================
+                   АВТОМОБИЛЬ В ЖИВОЙ ОЧЕРЕДИ
+                   ================================================= */
+
                 VehicleState.IN_QUEUE -> {
 
                     val currentPosition =
@@ -618,52 +645,96 @@ class QueueWatchService : Service() {
 
 
                     /*
-                     * Проверяем переход через
-                     * порог позиции.
+                     * -------------------------------------------------
+                     * ПОЗИЦИОННОЕ ОПОВЕЩЕНИЕ
+                     * -------------------------------------------------
+                     *
+                     * Событие возникает при пересечении порога
+                     * сверху вниз.
                      *
                      * Например:
                      *
-                     * 105 -> 95
+                     * 105 -> 99
                      *
-                     * считается пересечением 100.
+                     * при пороге 100.
+                     *
+                     * После окончания пяти предупреждений
+                     * positionAlertTriggered остаётся true.
+                     *
+                     * Чтобы получить НОВОЕ событие,
+                     * автомобиль должен сначала выйти
+                     * из порога:
+                     *
+                     * 99 -> 101
+                     *
+                     * а затем снова пересечь:
+                     *
+                     * 101 -> 99
                      */
 
                     if (
-                        positionAlertEnabled &&
-                        !positionAlertTriggered &&
                         currentPosition != null
                     ) {
 
-                        val crossed =
+                        /*
+                         * Вышли обратно из порога.
+                         *
+                         * Это вооружает новое событие.
+                         */
+
+                        if (
+                            currentPosition >
+                                positionThreshold
+                        ) {
+
                             if (
-                                previousPosition == null
+                                positionAlertTriggered
                             ) {
 
-                                currentPosition <=
-                                    positionThreshold
-
-                            } else {
-
-                                previousPosition >
-                                    positionThreshold &&
-                                    currentPosition <=
-                                    positionThreshold
+                                onPositionAlertTriggeredChange(
+                                    false
+                                )
                             }
+                        }
 
 
-                        if (crossed) {
+                        if (
+                            positionAlertEnabled &&
+                            !positionAlertTriggered
+                        ) {
 
-                            onPositionAlertTriggeredChange(
-                                true
-                            )
+                            val crossed =
+                                if (
+                                    previousPosition == null
+                                ) {
+
+                                    currentPosition <=
+                                        positionThreshold
+
+                                } else {
+
+                                    previousPosition >
+                                        positionThreshold &&
+                                        currentPosition <=
+                                            positionThreshold
+                                }
 
 
-                            triggerAlert(
-                                AlertType.POSITION,
+                            if (crossed) {
 
-                                "Автомобиль достиг позиции " +
-                                    "$positionThreshold или меньше."
-                            )
+                                onPositionAlertTriggeredChange(
+                                    true
+                                )
+
+
+                                triggerAlert(
+
+                                    AlertType.POSITION,
+
+                                    "Автомобиль достиг позиции " +
+                                        "$positionThreshold или меньше."
+                                )
+                            }
                         }
                     }
 
@@ -674,7 +745,9 @@ class QueueWatchService : Service() {
 
 
                     /*
-                     * Новый адаптивный прогноз.
+                     * -------------------------------------------------
+                     * АДАПТИВНЫЙ ПРОГНОЗ
+                     * -------------------------------------------------
                      */
 
                     val forecast =
@@ -705,53 +778,103 @@ class QueueWatchService : Service() {
                         saveForecast(
                             forecast.estimatedMinutes
                         )
+
                     } else {
 
                         preferences
                             .edit()
-                            .remove(KEY_FORECAST)
+                            .remove(
+                                KEY_FORECAST
+                            )
                             .apply()
                     }
 
-
-                    /*
-                     * Предупреждение по прогнозу.
-                     */
 
                     val estimated =
                         forecast?.estimatedMinutes
 
 
+                    /*
+                     * -------------------------------------------------
+                     * ВРЕМЕННОЕ ОПОВЕЩЕНИЕ
+                     * -------------------------------------------------
+                     *
+                     * Например:
+                     *
+                     * установлен порог = 30 минут.
+                     *
+                     * 42 -> 31
+                     * ещё не тревожим.
+                     *
+                     * 31 -> 29
+                     * создаём событие.
+                     *
+                     * После пяти предупреждений
+                     * событие заканчивается.
+                     *
+                     * Если прогноз снова выйдет выше 30,
+                     * а потом снова войдёт в диапазон,
+                     * будет создано новое событие.
+                     */
+
                     if (
-                        forecastAlertEnabled &&
-                        !forecastAlertTriggered &&
-                        estimated != null &&
-                        estimated <=
-                            forecastAlertMinutes
+                        estimated != null
                     ) {
 
-                        onForecastAlertTriggeredChange(
-                            true
-                        )
+                        /*
+                         * Прогноз вышел за порог.
+                         *
+                         * Вооружаем новое событие.
+                         */
+
+                        if (
+                            estimated >
+                                forecastAlertMinutes
+                        ) {
+
+                            if (
+                                forecastAlertTriggered
+                            ) {
+
+                                onForecastAlertTriggeredChange(
+                                    false
+                                )
+                            }
+                        }
 
 
-                        val rounded =
-                            estimated
-                                .toInt()
-                                .coerceAtLeast(0)
+                        if (
+                            forecastAlertEnabled &&
+                            !forecastAlertTriggered &&
+                            estimated <=
+                                forecastAlertMinutes
+                        ) {
+
+                            onForecastAlertTriggeredChange(
+                                true
+                            )
 
 
-                        triggerAlert(
-                            AlertType.FORECAST,
+                            val rounded =
+                                estimated
+                                    .toInt()
+                                    .coerceAtLeast(0)
 
-                            "До вызова автомобиля " +
-                                "ориентировочно " +
-                                "$rounded минут."
-                        )
+
+                            triggerAlert(
+
+                                AlertType.FORECAST,
+
+                                "До вызова автомобиля " +
+                                    "ориентировочно " +
+                                    "$rounded минут."
+                            )
+                        }
                     }
 
 
                     saveMessage(
+
                         if (
                             currentPosition != null
                         ) {
@@ -768,6 +891,10 @@ class QueueWatchService : Service() {
                 }
 
 
+                /* =================================================
+                   ФАКТИЧЕСКИЙ ВЫЗОВ
+                   ================================================= */
+
                 VehicleState.CALLED -> {
 
                     saveState(
@@ -783,7 +910,9 @@ class QueueWatchService : Service() {
 
 
                     /*
-                     * Только status == 3.
+                     * Только подтверждённый
+                     * VehicleState.CALLED вызывает
+                     * это предупреждение.
                      */
 
                     if (
@@ -797,6 +926,7 @@ class QueueWatchService : Service() {
 
 
                         triggerAlert(
+
                             AlertType.CALLED,
 
                             "Автомобиль вызван " +
@@ -812,6 +942,10 @@ class QueueWatchService : Service() {
                         .apply()
                 }
 
+
+                /* =================================================
+                   НЕОПРЕДЕЛЁННОЕ СОСТОЯНИЕ
+                   ================================================= */
 
                 VehicleState.UNKNOWN -> {
 
@@ -829,7 +963,7 @@ class QueueWatchService : Service() {
                 }
             }
 
-        } catch (e: Exception) {
+        } catch (_: Exception) {
 
             saveMessage(
                 "Ошибка обработки данных. " +
@@ -840,7 +974,7 @@ class QueueWatchService : Service() {
 
 
     /* ========================================================
-       ОПОВЕЩЕНИЕ
+       ЗАПУСК ОПОВЕЩЕНИЯ
        ======================================================== */
 
     private fun triggerAlert(
@@ -849,9 +983,13 @@ class QueueWatchService : Service() {
     ) {
 
         /*
-         * Если уже есть активное
-         * неподтверждённое оповещение,
-         * новое не затираем.
+         * Если уже существует активное
+         * неподтверждённое событие,
+         * новое не создаём.
+         *
+         * QueueAlertManager самостоятельно
+         * ограничивает цикл пятью
+         * предупреждениями.
          */
 
         if (
@@ -867,28 +1005,40 @@ class QueueWatchService : Service() {
         )
 
 
+        /*
+         * Первичное системное уведомление.
+         *
+         * Звуковой и голосовой цикл
+         * выполняется QueueAlertManager.
+         */
+
         showAlertNotification(
             message
         )
 
 
         /*
-         * Уведомление повторяется
-         * раз в минуту.
+         * Обновляем визуальное уведомление
+         * раз в минуту, пока событие активно.
          *
-         * Сам звук и голос выполняет
-         * QueueAlertManager.
+         * Это НЕ создаёт дополнительный
+         * звуковой цикл.
+         *
+         * Звуковые повторы ограничены
+         * QueueAlertManager пятью.
          */
 
-        alertJob?.cancel()
+        alertNotificationJob?.cancel()
 
 
-        alertJob =
+        alertNotificationJob =
             scope.launch {
 
                 while (isActive) {
 
-                    delay(60_000)
+                    delay(
+                        ALERT_NOTIFICATION_UPDATE_INTERVAL
+                    )
 
 
                     if (
@@ -1183,7 +1333,9 @@ class QueueWatchService : Service() {
 
 
         manager.notify(
+
             ALERT_NOTIFICATION_ID,
+
             notification
         )
     }
@@ -1197,7 +1349,7 @@ class QueueWatchService : Service() {
 
         monitoringJob?.cancel()
 
-        alertJob?.cancel()
+        alertNotificationJob?.cancel()
 
 
         alertManager?.release()
