@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
@@ -69,7 +68,7 @@ fun QueueWatchApp() {
 
 
     /*
-     * Настройки оповещений.
+     * Настройки реальных оповещений.
      */
 
     var positionAlertEnabled by rememberSaveable {
@@ -78,14 +77,6 @@ fun QueueWatchApp() {
 
     var positionAlertThreshold by rememberSaveable {
         mutableStateOf("100")
-    }
-
-    var forecastAlertEnabled by rememberSaveable {
-        mutableStateOf(true)
-    }
-
-    var forecastAlertMinutes by rememberSaveable {
-        mutableStateOf("30")
     }
 
     var calledAlertEnabled by rememberSaveable {
@@ -129,20 +120,6 @@ fun QueueWatchApp() {
                         positionAlertThreshold = it
                     },
 
-                    forecastAlertEnabled =
-                        forecastAlertEnabled,
-
-                    onForecastAlertEnabledChange = {
-                        forecastAlertEnabled = it
-                    },
-
-                    forecastAlertMinutes =
-                        forecastAlertMinutes,
-
-                    onForecastAlertMinutesChange = {
-                        forecastAlertMinutes = it
-                    },
-
                     calledAlertEnabled =
                         calledAlertEnabled,
 
@@ -167,13 +144,6 @@ fun QueueWatchApp() {
                     positionAlertThreshold =
                         positionAlertThreshold.toIntOrNull()
                             ?: 100,
-
-                    forecastAlertEnabled =
-                        forecastAlertEnabled,
-
-                    forecastAlertMinutes =
-                        forecastAlertMinutes.toIntOrNull()
-                            ?: 30,
 
                     calledAlertEnabled =
                         calledAlertEnabled
@@ -202,12 +172,6 @@ private fun SetupScreen(
 
     positionAlertThreshold: String,
     onPositionAlertThresholdChange: (String) -> Unit,
-
-    forecastAlertEnabled: Boolean,
-    onForecastAlertEnabledChange: (Boolean) -> Unit,
-
-    forecastAlertMinutes: String,
-    onForecastAlertMinutesChange: (String) -> Unit,
 
     calledAlertEnabled: Boolean,
     onCalledAlertEnabledChange: (Boolean) -> Unit,
@@ -439,68 +403,6 @@ private fun SetupScreen(
 
 
         /* ----------------------------------------------------
-           ПРЕДУПРЕЖДЕНИЕ ДО ВЫЗОВА
-           ---------------------------------------------------- */
-
-        Button(
-            onClick = {
-                onForecastAlertEnabledChange(
-                    !forecastAlertEnabled
-                )
-            },
-
-            modifier = Modifier.fillMaxWidth()
-        ) {
-
-            Text(
-                text =
-                    if (forecastAlertEnabled) {
-                        "✓ Предупреждать до вызова"
-                    } else {
-                        "Предупреждение до вызова выключено"
-                    }
-            )
-        }
-
-
-        if (forecastAlertEnabled) {
-
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
-            OutlinedTextField(
-                value = forecastAlertMinutes,
-
-                onValueChange = {
-                    onForecastAlertMinutesChange(
-                        it.filter { char ->
-                            char.isDigit()
-                        }
-                    )
-                },
-
-                label = {
-                    Text("Предупредить за минут")
-                },
-
-                placeholder = {
-                    Text("30")
-                },
-
-                singleLine = true,
-
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
-
-
-        /* ----------------------------------------------------
            ФАКТИЧЕСКИЙ ВЫЗОВ
            ---------------------------------------------------- */
 
@@ -560,9 +462,6 @@ private fun TrackingScreen(
     positionAlertEnabled: Boolean,
     positionAlertThreshold: Int,
 
-    forecastAlertEnabled: Boolean,
-    forecastAlertMinutes: Int,
-
     calledAlertEnabled: Boolean
 ) {
 
@@ -589,6 +488,8 @@ private fun TrackingScreen(
 
     /*
      * Запускаем Foreground Service.
+     *
+     * Прогнозное оповещение принудительно выключено.
      */
 
     LaunchedEffect(
@@ -622,14 +523,18 @@ private fun TrackingScreen(
                     positionAlertThreshold
                 )
 
+                /*
+                 * Прогнозирование сейчас не используется.
+                 * Прогнозные уведомления выключаем.
+                 */
                 putExtra(
                     QueueWatchService.EXTRA_FORECAST_ALERT_ENABLED,
-                    forecastAlertEnabled
+                    false
                 )
 
                 putExtra(
                     QueueWatchService.EXTRA_FORECAST_MINUTES,
-                    forecastAlertMinutes
+                    0
                 )
 
                 putExtra(
@@ -670,14 +575,6 @@ private fun TrackingScreen(
 
     var queueCount by remember {
         mutableStateOf<Int?>(null)
-    }
-
-    var speed by remember {
-        mutableStateOf<Double?>(null)
-    }
-
-    var forecastMinutes by remember {
-        mutableStateOf<Double?>(null)
     }
 
     var message by remember {
@@ -732,40 +629,6 @@ private fun TrackingScreen(
                         QueueWatchService.KEY_QUEUE_COUNT,
                         0
                     )
-
-                } else {
-                    null
-                }
-
-
-            speed =
-                if (
-                    preferences.contains(
-                        QueueWatchService.KEY_SPEED
-                    )
-                ) {
-
-                    preferences.getFloat(
-                        QueueWatchService.KEY_SPEED,
-                        0f
-                    ).toDouble()
-
-                } else {
-                    null
-                }
-
-
-            forecastMinutes =
-                if (
-                    preferences.contains(
-                        QueueWatchService.KEY_FORECAST
-                    )
-                ) {
-
-                    preferences.getFloat(
-                        QueueWatchService.KEY_FORECAST,
-                        0f
-                    ).toDouble()
 
                 } else {
                     null
@@ -922,8 +785,14 @@ private fun TrackingScreen(
         )
 
 
+        /*
+         * Номер автомобиля — крупно и цветом.
+         */
+
         Text(
-            text = "Автомобиль: $carNumber"
+            text = carNumber,
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.primary
         )
 
 
@@ -946,9 +815,19 @@ private fun TrackingScreen(
 
             "IN_QUEUE" -> {
 
+                /*
+                 * Позиция — крупно и цветом.
+                 */
+
                 Text(
-                    text = "АВТОМОБИЛЬ В ОЧЕРЕДИ",
-                    style = MaterialTheme.typography.titleLarge
+                    text =
+                        "Позиция: " +
+                            (
+                                position?.toString()
+                                    ?: "—"
+                            ),
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.primary
                 )
 
 
@@ -957,23 +836,13 @@ private fun TrackingScreen(
                 )
 
 
-                Text(
-                    text =
-                        "Позиция: " +
-                            (
-                                position?.toString()
-                                    ?: "—"
-                            )
-                )
-
-
-                Spacer(
-                    modifier = Modifier.height(8.dp)
-                )
-
+                /*
+                 * Оставляем только короткий статус.
+                 */
 
                 Text(
-                    text = "Статус: живая очередь"
+                    text = "Статус: живая очередь",
+                    style = MaterialTheme.typography.titleMedium
                 )
             }
 
@@ -982,7 +851,8 @@ private fun TrackingScreen(
 
                 Text(
                     text = "АВТОМОБИЛЬ ВЫЗВАН",
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
                 )
 
 
@@ -1003,6 +873,17 @@ private fun TrackingScreen(
                     text = "СОСТОЯНИЕ НЕ ОПРЕДЕЛЕНО",
                     style = MaterialTheme.typography.titleLarge
                 )
+
+                if (message.isNotBlank()) {
+
+                    Spacer(
+                        modifier = Modifier.height(12.dp)
+                    )
+
+                    Text(
+                        text = message
+                    )
+                }
             }
 
 
@@ -1012,18 +893,22 @@ private fun TrackingScreen(
                     text = "ОЖИДАНИЕ АВТОМОБИЛЯ",
                     style = MaterialTheme.typography.titleLarge
                 )
+
+                if (
+                    message.isNotBlank() &&
+                    message != "Подготовка..."
+                ) {
+
+                    Spacer(
+                        modifier = Modifier.height(12.dp)
+                    )
+
+                    Text(
+                        text = message
+                    )
+                }
             }
         }
-
-
-        Spacer(
-            modifier = Modifier.height(20.dp)
-        )
-
-
-        Text(
-            text = message
-        )
 
 
         Spacer(
@@ -1055,60 +940,5 @@ private fun TrackingScreen(
                         }
                     )
         )
-
-
-        if (speed != null) {
-
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-
-            Text(
-                text =
-                    String.format(
-                        Locale.getDefault(),
-                        "Скорость очереди: %.2f поз./ч",
-                        speed
-                    )
-            )
-        }
-
-
-        if (forecastMinutes != null) {
-
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-
-            val totalMinutes =
-                forecastMinutes!!
-                    .toInt()
-                    .coerceAtLeast(0)
-
-
-            val hours =
-                totalMinutes / 60
-
-
-            val minutes =
-                totalMinutes % 60
-
-
-            Text(
-                text =
-                    if (hours > 0) {
-
-                        "Ориентировочно до вызова: " +
-                            "$hours ч $minutes мин"
-
-                    } else {
-
-                        "Ориентировочно до вызова: " +
-                            "$minutes мин"
-                    }
-            )
-        }
     }
 }
