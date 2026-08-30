@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -520,7 +519,7 @@ private fun TrackingScreen(
                 )
 
                 /*
-                 * Прогнозное оповещение отключено.
+                 * Прогнозные уведомления отключены.
                  */
                 putExtra(
                     QueueWatchService.EXTRA_FORECAST_ALERT_ENABLED,
@@ -547,7 +546,7 @@ private fun TrackingScreen(
 
 
     /* --------------------------------------------------------
-       ДАННЫЕ СЕРВИСА
+       ЧТЕНИЕ ДАННЫХ СЕРВИСА
        -------------------------------------------------------- */
 
     val preferences =
@@ -598,6 +597,7 @@ private fun TrackingScreen(
                     )
 
                 } else {
+
                     null
                 }
 
@@ -622,6 +622,7 @@ private fun TrackingScreen(
                     )
 
                 } else {
+
                     null
                 }
 
@@ -672,7 +673,8 @@ private fun TrackingScreen(
                 alertMessage =
                     serviceAlertMessage
 
-                alertVisible = true
+                alertVisible =
+                    true
             }
 
 
@@ -691,8 +693,8 @@ private fun TrackingScreen(
 
             onDismissRequest = {
                 /*
-                 * Системное закрытие не считается
-                 * подтверждением события.
+                 * Закрытие системной кнопкой
+                 * не считается подтверждением.
                  */
             },
 
@@ -737,7 +739,8 @@ private fun TrackingScreen(
                         }
 
 
-                        alertVisible = false
+                        alertVisible =
+                            false
                     }
                 ) {
 
@@ -751,7 +754,7 @@ private fun TrackingScreen(
 
 
     /* ========================================================
-       НОВЫЙ АВТОМОБИЛЬНЫЙ ЭКРАН
+       ЦВЕТА ЭКРАНА
        ======================================================== */
 
     val screenBackground =
@@ -817,13 +820,10 @@ private fun TrackingScreen(
 
 
     /*
-     * Шкала показывает не прогноз времени,
-     * а приближение текущей позиции к заданному порогу.
+     * Это не прогноз времени.
      *
-     * Например:
-     * текущая позиция 200, порог 100 -> 50 %
-     * текущая позиция 125, порог 100 -> 80 %
-     * текущая позиция 100 -> 100 %
+     * Шкала показывает только приближение
+     * текущей позиции к заданному порогу.
      */
 
     val thresholdProgress =
@@ -847,6 +847,10 @@ private fun TrackingScreen(
         }
 
 
+    /* ========================================================
+       НОВЫЙ ЭКРАН
+       ======================================================== */
+
     Surface(
         modifier =
             Modifier.fillMaxSize(),
@@ -860,16 +864,19 @@ private fun TrackingScreen(
                 .fillMaxSize()
                 .padding(
                     horizontal = 20.dp,
-                    vertical = 22.dp
+                    vertical = 20.dp
                 ),
 
             horizontalAlignment =
-                Alignment.CenterHorizontally
+                Alignment.CenterHorizontally,
+
+            verticalArrangement =
+                Arrangement.Top
         ) {
 
 
             /* ------------------------------------------------
-               ЗАГОЛОВОК
+               QUEUEWATCH
                ------------------------------------------------ */
 
             Text(
@@ -888,12 +895,12 @@ private fun TrackingScreen(
 
             Spacer(
                 modifier =
-                    Modifier.height(18.dp)
+                    Modifier.height(16.dp)
             )
 
 
             /* ------------------------------------------------
-               НОМЕР АВТОМОБИЛЯ
+               НОМЕР И ПУНКТ ПРОПУСКА
                ------------------------------------------------ */
 
             Box(
@@ -907,7 +914,7 @@ private fun TrackingScreen(
                     )
                     .padding(
                         horizontal = 16.dp,
-                        vertical = 16.dp
+                        vertical = 14.dp
                     ),
 
                 contentAlignment =
@@ -939,7 +946,7 @@ private fun TrackingScreen(
 
                     Spacer(
                         modifier =
-                            Modifier.height(5.dp)
+                            Modifier.height(4.dp)
                     )
 
 
@@ -954,7 +961,10 @@ private fun TrackingScreen(
                             15.sp,
 
                         fontWeight =
-                            FontWeight.Medium
+                            FontWeight.Medium,
+
+                        textAlign =
+                            TextAlign.Center
                     )
                 }
             }
@@ -962,12 +972,12 @@ private fun TrackingScreen(
 
             Spacer(
                 modifier =
-                    Modifier.height(18.dp)
+                    Modifier.height(14.dp)
             )
 
 
             /* ------------------------------------------------
-               ГЛАВНЫЙ БЛОК — ПОЗИЦИЯ
+               ТЕКУЩАЯ ПОЗИЦИЯ
                ------------------------------------------------ */
 
             Box(
@@ -981,7 +991,7 @@ private fun TrackingScreen(
                     )
                     .padding(
                         horizontal = 18.dp,
-                        vertical = 22.dp
+                        vertical = 18.dp
                     ),
 
                 contentAlignment =
@@ -1010,7 +1020,7 @@ private fun TrackingScreen(
 
                     Spacer(
                         modifier =
-                            Modifier.height(4.dp)
+                            Modifier.height(2.dp)
                     )
 
 
@@ -1030,12 +1040,6 @@ private fun TrackingScreen(
 
                         textAlign =
                             TextAlign.Center
-                    )
-
-
-                    Spacer(
-                        modifier =
-                            Modifier.height(4.dp)
                     )
 
 
@@ -1061,12 +1065,12 @@ private fun TrackingScreen(
 
             Spacer(
                 modifier =
-                    Modifier.height(18.dp)
+                    Modifier.height(14.dp)
             )
 
 
             /* ------------------------------------------------
-               ШКАЛА ПРИБЛИЖЕНИЯ К ПОРОГУ
+               ШКАЛА ДО ПОРОГА
                ------------------------------------------------ */
 
             if (
@@ -1126,7 +1130,7 @@ private fun TrackingScreen(
 
                         Spacer(
                             modifier =
-                                Modifier.height(12.dp)
+                                Modifier.height(10.dp)
                         )
 
 
@@ -1135,7 +1139,7 @@ private fun TrackingScreen(
                                 .fillMaxWidth()
                                 .height(10.dp)
                                 .clip(
-                                    RoundedCornerShape(50)
+                                    RoundedCornerShape(50.dp)
                                 )
                                 .background(
                                     Color(0xFF303A45)
@@ -1149,7 +1153,7 @@ private fun TrackingScreen(
                                     )
                                     .height(10.dp)
                                     .clip(
-                                        RoundedCornerShape(50)
+                                        RoundedCornerShape(50.dp)
                                     )
                                     .background(
                                         greenColor
@@ -1160,7 +1164,7 @@ private fun TrackingScreen(
 
                         Spacer(
                             modifier =
-                                Modifier.height(8.dp)
+                                Modifier.height(7.dp)
                         )
 
 
@@ -1232,7 +1236,7 @@ private fun TrackingScreen(
 
 
             /* ------------------------------------------------
-               ИНФОРМАЦИОННЫЙ БЛОК
+               ИНФОРМАЦИЯ
                ------------------------------------------------ */
 
             Box(
@@ -1247,18 +1251,20 @@ private fun TrackingScreen(
                     .padding(16.dp)
             ) {
 
-                Row(
+                Column(
                     modifier =
                         Modifier.fillMaxWidth()
                 ) {
 
-
-                    Column(
+                    Row(
                         modifier =
-                            Modifier.weight(1f),
+                            Modifier.fillMaxWidth(),
 
-                        horizontalAlignment =
-                            Alignment.Start
+                        horizontalArrangement =
+                            Arrangement.SpaceBetween,
+
+                        verticalAlignment =
+                            Alignment.CenterVertically
                     ) {
 
                         Text(
@@ -1269,13 +1275,7 @@ private fun TrackingScreen(
                                 secondaryTextColor,
 
                             fontSize =
-                                11.sp
-                        )
-
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(4.dp)
+                                12.sp
                         )
 
 
@@ -1288,7 +1288,7 @@ private fun TrackingScreen(
                                 mainTextColor,
 
                             fontSize =
-                                24.sp,
+                                23.sp,
 
                             fontWeight =
                                 FontWeight.Bold
@@ -1296,29 +1296,32 @@ private fun TrackingScreen(
                     }
 
 
-                    Column(
+                    Spacer(
                         modifier =
-                            Modifier.weight(1f),
+                            Modifier.height(10.dp)
+                    )
 
-                        horizontalAlignment =
-                            Alignment.End
+
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        horizontalArrangement =
+                            Arrangement.SpaceBetween,
+
+                        verticalAlignment =
+                            Alignment.CenterVertically
                     ) {
 
                         Text(
                             text =
-                                "ОБНОВЛЕНО",
+                                "ПОСЛЕДНЕЕ ОБНОВЛЕНИЕ",
 
                             color =
                                 secondaryTextColor,
 
                             fontSize =
-                                11.sp
-                        )
-
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(4.dp)
+                                12.sp
                         )
 
 
@@ -1332,7 +1335,7 @@ private fun TrackingScreen(
                                 mainTextColor,
 
                             fontSize =
-                                17.sp,
+                                16.sp,
 
                             fontWeight =
                                 FontWeight.SemiBold,
@@ -1344,13 +1347,6 @@ private fun TrackingScreen(
                 }
             }
 
-
-            /*
-             * Дополнительное сообщение показываем только
-             * для неопределённого состояния или поиска,
-             * чтобы рабочий экран живой очереди оставался
-             * чистым и не перегруженным.
-             */
 
             if (
                 vehicleState != "IN_QUEUE" &&
@@ -1383,12 +1379,12 @@ private fun TrackingScreen(
 
             Spacer(
                 modifier =
-                    Modifier.weight(1f)
+                    Modifier.height(18.dp)
             )
 
 
             /* ------------------------------------------------
-               НИЖНИЙ ИНДИКАТОР
+               СОСТОЯНИЕ ОТСЛЕЖИВАНИЯ
                ------------------------------------------------ */
 
             Text(
@@ -1412,12 +1408,6 @@ private fun TrackingScreen(
 
                 fontWeight =
                     FontWeight.SemiBold
-            )
-
-
-            Spacer(
-                modifier =
-                    Modifier.height(4.dp)
             )
         }
     }
