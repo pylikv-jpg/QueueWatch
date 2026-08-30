@@ -16,14 +16,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,14 +52,54 @@ import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
+
+        super.onCreate(
+            savedInstanceState
+        )
 
         setContent {
             QueueWatchApp()
         }
     }
 }
+
+
+/* ============================================================
+   ОБЩИЕ ЦВЕТА
+   ============================================================ */
+
+private val ScreenBackground =
+    Color(0xFF0B0F14)
+
+private val PanelColor =
+    Color(0xFF151B22)
+
+private val SecondaryPanelColor =
+    Color(0xFF1B232C)
+
+private val MainTextColor =
+    Color(0xFFF1F5F9)
+
+private val SecondaryTextColor =
+    Color(0xFF9AA6B2)
+
+private val GreenColor =
+    Color(0xFF3DDC84)
+
+private val YellowColor =
+    Color(0xFFFFC857)
+
+private val RedColor =
+    Color(0xFFFF5A5F)
+
+private val BlueColor =
+    Color(0xFF4DA3FF)
+
+private val BorderColor =
+    Color(0xFF35414D)
 
 
 /* ============================================================
@@ -92,20 +137,28 @@ fun QueueWatchApp() {
     MaterialTheme {
 
         Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+            modifier =
+                Modifier.fillMaxSize(),
+
+            color =
+                ScreenBackground
         ) {
 
-            if (!trackingStarted) {
+            if (
+                !trackingStarted
+            ) {
 
                 SetupScreen(
-                    carNumber = carNumber,
+
+                    carNumber =
+                        carNumber,
 
                     onCarNumberChange = {
                         carNumber = it
                     },
 
-                    checkpoint = checkpoint,
+                    checkpoint =
+                        checkpoint,
 
                     onCheckpointSelected = {
                         checkpoint = it
@@ -140,14 +193,19 @@ fun QueueWatchApp() {
             } else {
 
                 TrackingScreen(
-                    carNumber = carNumber,
-                    checkpointName = checkpoint,
+
+                    carNumber =
+                        carNumber,
+
+                    checkpointName =
+                        checkpoint,
 
                     positionAlertEnabled =
                         positionAlertEnabled,
 
                     positionAlertThreshold =
-                        positionAlertThreshold.toIntOrNull()
+                        positionAlertThreshold
+                            .toIntOrNull()
                             ?: 100,
 
                     calledAlertEnabled =
@@ -163,9 +221,12 @@ fun QueueWatchApp() {
    ЭКРАН НАСТРОЙКИ
    ============================================================ */
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalMaterial3Api::class
+)
 @Composable
 private fun SetupScreen(
+
     carNumber: String,
     onCarNumberChange: (String) -> Unit,
 
@@ -189,15 +250,16 @@ private fun SetupScreen(
     }
 
 
-    val checkpoints = listOf(
-        "Бенякони",
-        "Берестовица",
-        "Брест",
-        "Брузги",
-        "Григоровщина",
-        "Каменный Лог",
-        "Козловичи"
-    )
+    val checkpoints =
+        listOf(
+            "Бенякони",
+            "Берестовица",
+            "Брест",
+            "Брузги",
+            "Григоровщина",
+            "Каменный Лог",
+            "Козловичи"
+        )
 
 
     val canStart =
@@ -205,242 +267,1009 @@ private fun SetupScreen(
             checkpoint.isNotBlank()
 
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .imePadding()
-            .navigationBarsPadding(),
+    val scrollState =
+        rememberScrollState()
 
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
 
-        verticalArrangement =
-            Arrangement.Center
+    Surface(
+        modifier =
+            Modifier.fillMaxSize(),
+
+        color =
+            ScreenBackground
     ) {
 
-        Text(
-            text = "QueueWatch",
-            style = MaterialTheme.typography.headlineLarge
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(
+                    scrollState
+                )
+                .padding(
+                    horizontal = 20.dp,
+                    vertical = 22.dp
+                )
+                .imePadding()
+                .navigationBarsPadding(),
 
-
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
-
-
-        Text(
-            text = "Мониторинг электронной очереди",
-            style = MaterialTheme.typography.bodyLarge
-        )
-
-
-        Spacer(
-            modifier = Modifier.height(24.dp)
-        )
-
-
-        OutlinedTextField(
-            value = carNumber,
-
-            onValueChange = {
-                onCarNumberChange(it)
-            },
-
-            label = {
-                Text("Введите номер")
-            },
-
-            placeholder = {
-                Text("Например: 1234AB7")
-            },
-
-            singleLine = true,
-
-            modifier = Modifier.fillMaxWidth()
-        )
-
-
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-
-
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-
-            onExpandedChange = {
-                expanded = !expanded
-            },
-
-            modifier = Modifier.fillMaxWidth()
+            horizontalAlignment =
+                Alignment.CenterHorizontally
         ) {
 
-            OutlinedTextField(
-                value = checkpoint,
 
-                onValueChange = {},
+            /* ------------------------------------------------
+               ЗАГОЛОВОК
+               ------------------------------------------------ */
 
-                readOnly = true,
+            Text(
+                text =
+                    "QueueWatch",
 
-                label = {
-                    Text("Выберите пункт пропуска")
-                },
+                color =
+                    MainTextColor,
 
-                trailingIcon = {
+                fontSize =
+                    34.sp,
 
-                    ExposedDropdownMenuDefaults.TrailingIcon(
-                        expanded = expanded
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        2.dp
                     )
-                },
+            )
+
+
+            Text(
+                text =
+                    "ЭЛЕКТРОННАЯ ОЧЕРЕДЬ",
+
+                color =
+                    BlueColor,
+
+                fontSize =
+                    13.sp,
+
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        6.dp
+                    )
+            )
+
+
+            Text(
+                text =
+                    "Мониторинг автомобиля на пункте пропуска",
+
+                color =
+                    SecondaryTextColor,
+
+                fontSize =
+                    13.sp,
+
+                textAlign =
+                    TextAlign.Center
+            )
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        22.dp
+                    )
+            )
+
+
+            /* ------------------------------------------------
+               АВТОМОБИЛЬ И ПУНКТ ПРОПУСКА
+               ------------------------------------------------ */
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(
+                        RoundedCornerShape(
+                            22.dp
+                        )
+                    )
+                    .background(
+                        PanelColor
+                    )
+                    .padding(
+                        18.dp
+                    )
+            ) {
+
+                Column {
+
+                    Text(
+                        text =
+                            "АВТОМОБИЛЬ",
+
+                        color =
+                            SecondaryTextColor,
+
+                        fontSize =
+                            12.sp,
+
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(
+                                8.dp
+                            )
+                    )
+
+
+                    OutlinedTextField(
+                        value =
+                            carNumber,
+
+                        onValueChange = {
+
+                            onCarNumberChange(
+                                it.uppercase()
+                            )
+                        },
+
+                        label = {
+
+                            Text(
+                                text =
+                                    "Регистрационный номер"
+                            )
+                        },
+
+                        placeholder = {
+
+                            Text(
+                                text =
+                                    "Например: 1234AB7"
+                            )
+                        },
+
+                        singleLine =
+                            true,
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+
+                                focusedTextColor =
+                                    MainTextColor,
+
+                                unfocusedTextColor =
+                                    MainTextColor,
+
+                                focusedBorderColor =
+                                    BlueColor,
+
+                                unfocusedBorderColor =
+                                    BorderColor,
+
+                                focusedLabelColor =
+                                    BlueColor,
+
+                                unfocusedLabelColor =
+                                    SecondaryTextColor,
+
+                                cursorColor =
+                                    BlueColor,
+
+                                focusedContainerColor =
+                                    SecondaryPanelColor,
+
+                                unfocusedContainerColor =
+                                    SecondaryPanelColor,
+
+                                focusedPlaceholderColor =
+                                    SecondaryTextColor,
+
+                                unfocusedPlaceholderColor =
+                                    SecondaryTextColor
+                            )
+                    )
+
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(
+                                18.dp
+                            )
+                    )
+
+
+                    Text(
+                        text =
+                            "ПУНКТ ПРОПУСКА",
+
+                        color =
+                            SecondaryTextColor,
+
+                        fontSize =
+                            12.sp,
+
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(
+                                8.dp
+                            )
+                    )
+
+
+                    ExposedDropdownMenuBox(
+
+                        expanded =
+                            expanded,
+
+                        onExpandedChange = {
+                            expanded = !expanded
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth()
+                    ) {
+
+                        OutlinedTextField(
+
+                            value =
+                                checkpoint,
+
+                            onValueChange = {},
+
+                            readOnly =
+                                true,
+
+                            label = {
+
+                                Text(
+                                    text =
+                                        "Выберите пункт"
+                                )
+                            },
+
+                            placeholder = {
+
+                                Text(
+                                    text =
+                                        "Пункт пропуска"
+                                )
+                            },
+
+                            trailingIcon = {
+
+                                ExposedDropdownMenuDefaults
+                                    .TrailingIcon(
+                                        expanded =
+                                            expanded
+                                    )
+                            },
+
+                            singleLine =
+                                true,
+
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+
+                            colors =
+                                OutlinedTextFieldDefaults.colors(
+
+                                    focusedTextColor =
+                                        MainTextColor,
+
+                                    unfocusedTextColor =
+                                        MainTextColor,
+
+                                    focusedBorderColor =
+                                        BlueColor,
+
+                                    unfocusedBorderColor =
+                                        BorderColor,
+
+                                    focusedLabelColor =
+                                        BlueColor,
+
+                                    unfocusedLabelColor =
+                                        SecondaryTextColor,
+
+                                    focusedContainerColor =
+                                        SecondaryPanelColor,
+
+                                    unfocusedContainerColor =
+                                        SecondaryPanelColor,
+
+                                    focusedPlaceholderColor =
+                                        SecondaryTextColor,
+
+                                    unfocusedPlaceholderColor =
+                                        SecondaryTextColor
+                                )
+                        )
+
+
+                        ExposedDropdownMenu(
+
+                            expanded =
+                                expanded,
+
+                            onDismissRequest = {
+                                expanded = false
+                            }
+                        ) {
+
+                            checkpoints.forEach { name ->
+
+                                DropdownMenuItem(
+
+                                    text = {
+
+                                        Text(
+                                            text =
+                                                name
+                                        )
+                                    },
+
+                                    onClick = {
+
+                                        onCheckpointSelected(
+                                            name
+                                        )
+
+                                        expanded =
+                                            false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        14.dp
+                    )
+            )
+
+
+            /* ------------------------------------------------
+               ОПОВЕЩЕНИЯ
+               ------------------------------------------------ */
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(
+                        RoundedCornerShape(
+                            22.dp
+                        )
+                    )
+                    .background(
+                        PanelColor
+                    )
+                    .padding(
+                        18.dp
+                    )
+            ) {
+
+                Column {
+
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        horizontalArrangement =
+                            Arrangement.SpaceBetween,
+
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+
+                        Column {
+
+                            Text(
+                                text =
+                                    "ОПОВЕЩЕНИЯ",
+
+                                color =
+                                    MainTextColor,
+
+                                fontSize =
+                                    17.sp,
+
+                                fontWeight =
+                                    FontWeight.Bold
+                            )
+
+
+                            Text(
+                                text =
+                                    "Сигнал и голосовое предупреждение",
+
+                                color =
+                                    SecondaryTextColor,
+
+                                fontSize =
+                                    12.sp
+                            )
+                        }
+
+
+                        Text(
+                            text =
+                                "●",
+
+                            color =
+                                GreenColor,
+
+                            fontSize =
+                                18.sp
+                        )
+                    }
+
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(
+                                18.dp
+                            )
+                    )
+
+
+                    /* ----------------------------------------
+                       ОПОВЕЩЕНИЕ ПО ПОЗИЦИИ
+                       ---------------------------------------- */
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(
+                                RoundedCornerShape(
+                                    16.dp
+                                )
+                            )
+                            .background(
+                                SecondaryPanelColor
+                            )
+                            .padding(
+                                14.dp
+                            )
+                    ) {
+
+                        Column {
+
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+
+                                horizontalArrangement =
+                                    Arrangement.SpaceBetween,
+
+                                verticalAlignment =
+                                    Alignment.CenterVertically
+                            ) {
+
+                                Column(
+                                    modifier =
+                                        Modifier.padding(
+                                            end = 8.dp
+                                        )
+                                ) {
+
+                                    Text(
+                                        text =
+                                            "ПО ПОЗИЦИИ",
+
+                                        color =
+                                            MainTextColor,
+
+                                        fontSize =
+                                            15.sp,
+
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+
+
+                                    Text(
+                                        text =
+                                            if (
+                                                positionAlertEnabled
+                                            ) {
+
+                                                "Предупреждение включено"
+
+                                            } else {
+
+                                                "Предупреждение выключено"
+                                            },
+
+                                        color =
+                                            if (
+                                                positionAlertEnabled
+                                            ) {
+
+                                                GreenColor
+
+                                            } else {
+
+                                                SecondaryTextColor
+                                            },
+
+                                        fontSize =
+                                            12.sp
+                                    )
+                                }
+
+
+                                Button(
+
+                                    onClick = {
+
+                                        onPositionAlertEnabledChange(
+                                            !positionAlertEnabled
+                                        )
+                                    },
+
+                                    colors =
+                                        ButtonDefaults.buttonColors(
+
+                                            containerColor =
+                                                if (
+                                                    positionAlertEnabled
+                                                ) {
+
+                                                    GreenColor
+
+                                                } else {
+
+                                                    Color(
+                                                        0xFF303A45
+                                                    )
+                                                },
+
+                                            contentColor =
+                                                if (
+                                                    positionAlertEnabled
+                                                ) {
+
+                                                    Color.Black
+
+                                                } else {
+
+                                                    MainTextColor
+                                                }
+                                        )
+                                ) {
+
+                                    Text(
+                                        text =
+                                            if (
+                                                positionAlertEnabled
+                                            ) {
+
+                                                "ВКЛ"
+
+                                            } else {
+
+                                                "ВЫКЛ"
+                                            },
+
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+                                }
+                            }
+
+
+                            if (
+                                positionAlertEnabled
+                            ) {
+
+                                Spacer(
+                                    modifier =
+                                        Modifier.height(
+                                            12.dp
+                                        )
+                                )
+
+
+                                OutlinedTextField(
+
+                                    value =
+                                        positionAlertThreshold,
+
+                                    onValueChange = {
+
+                                        onPositionAlertThresholdChange(
+
+                                            it.filter { char ->
+                                                char.isDigit()
+                                            }
+                                        )
+                                    },
+
+                                    label = {
+
+                                        Text(
+                                            text =
+                                                "Предупредить при позиции"
+                                        )
+                                    },
+
+                                    supportingText = {
+
+                                        Text(
+                                            text =
+                                                "Сигнал сработает при этой позиции или меньше"
+                                        )
+                                    },
+
+                                    placeholder = {
+
+                                        Text(
+                                            text =
+                                                "100"
+                                        )
+                                    },
+
+                                    singleLine =
+                                        true,
+
+                                    modifier =
+                                        Modifier.fillMaxWidth(),
+
+                                    colors =
+                                        OutlinedTextFieldDefaults.colors(
+
+                                            focusedTextColor =
+                                                MainTextColor,
+
+                                            unfocusedTextColor =
+                                                MainTextColor,
+
+                                            focusedBorderColor =
+                                                GreenColor,
+
+                                            unfocusedBorderColor =
+                                                BorderColor,
+
+                                            focusedLabelColor =
+                                                GreenColor,
+
+                                            unfocusedLabelColor =
+                                                SecondaryTextColor,
+
+                                            cursorColor =
+                                                GreenColor,
+
+                                            focusedContainerColor =
+                                                PanelColor,
+
+                                            unfocusedContainerColor =
+                                                PanelColor,
+
+                                            focusedSupportingTextColor =
+                                                SecondaryTextColor,
+
+                                            unfocusedSupportingTextColor =
+                                                SecondaryTextColor
+                                        )
+                                )
+                            }
+                        }
+                    }
+
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(
+                                12.dp
+                            )
+                    )
+
+
+                    /* ----------------------------------------
+                       ОПОВЕЩЕНИЕ О ВЫЗОВЕ
+                       ---------------------------------------- */
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(
+                                RoundedCornerShape(
+                                    16.dp
+                                )
+                            )
+                            .background(
+                                SecondaryPanelColor
+                            )
+                            .padding(
+                                14.dp
+                            )
+                    ) {
+
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+
+                            horizontalArrangement =
+                                Arrangement.SpaceBetween,
+
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+
+                            Column(
+                                modifier =
+                                    Modifier.padding(
+                                        end = 8.dp
+                                    )
+                            ) {
+
+                                Text(
+                                    text =
+                                        "ВЫЗОВ НА КПП",
+
+                                    color =
+                                        MainTextColor,
+
+                                    fontSize =
+                                        15.sp,
+
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+
+
+                                Text(
+                                    text =
+                                        if (
+                                            calledAlertEnabled
+                                        ) {
+
+                                            "Обязательное предупреждение включено"
+
+                                        } else {
+
+                                            "Предупреждение выключено"
+                                        },
+
+                                    color =
+                                        if (
+                                            calledAlertEnabled
+                                        ) {
+
+                                            GreenColor
+
+                                        } else {
+
+                                            SecondaryTextColor
+                                        },
+
+                                    fontSize =
+                                        12.sp
+                                )
+                            }
+
+
+                            Button(
+
+                                onClick = {
+
+                                    onCalledAlertEnabledChange(
+                                        !calledAlertEnabled
+                                    )
+                                },
+
+                                colors =
+                                    ButtonDefaults.buttonColors(
+
+                                        containerColor =
+                                            if (
+                                                calledAlertEnabled
+                                            ) {
+
+                                                GreenColor
+
+                                            } else {
+
+                                                Color(
+                                                    0xFF303A45
+                                                )
+                                            },
+
+                                        contentColor =
+                                            if (
+                                                calledAlertEnabled
+                                            ) {
+
+                                                Color.Black
+
+                                            } else {
+
+                                                MainTextColor
+                                            }
+                                    )
+                            ) {
+
+                                Text(
+                                    text =
+                                        if (
+                                            calledAlertEnabled
+                                        ) {
+
+                                            "ВКЛ"
+
+                                        } else {
+
+                                            "ВЫКЛ"
+                                        },
+
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        18.dp
+                    )
+            )
+
+
+            /* ------------------------------------------------
+               КНОПКА ЗАПУСКА
+               ------------------------------------------------ */
+
+            Button(
+
+                onClick =
+                    onStartTracking,
+
+                enabled =
+                    canStart,
 
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor()
-            )
+                    .height(
+                        58.dp
+                    ),
 
+                shape =
+                    RoundedCornerShape(
+                        18.dp
+                    ),
 
-            ExposedDropdownMenu(
-                expanded = expanded,
+                colors =
+                    ButtonDefaults.buttonColors(
 
-                onDismissRequest = {
-                    expanded = false
-                }
+                        containerColor =
+                            BlueColor,
+
+                        contentColor =
+                            Color.White,
+
+                        disabledContainerColor =
+                            Color(
+                                0xFF26313B
+                            ),
+
+                        disabledContentColor =
+                            Color(
+                                0xFF687581
+                            )
+                    )
             ) {
 
-                checkpoints.forEach { name ->
+                Text(
+                    text =
+                        "НАЧАТЬ ОТСЛЕЖИВАНИЕ",
 
-                    androidx.compose.material3.DropdownMenuItem(
+                    fontSize =
+                        15.sp,
 
-                        text = {
-                            Text(name)
-                        },
-
-                        onClick = {
-
-                            onCheckpointSelected(name)
-
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
-
-
-        Spacer(
-            modifier = Modifier.height(20.dp)
-        )
-
-
-        Text(
-            text = "Оповещения",
-            style = MaterialTheme.typography.titleLarge
-        )
-
-
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
-
-
-        Button(
-            onClick = {
-                onPositionAlertEnabledChange(
-                    !positionAlertEnabled
+                    fontWeight =
+                        FontWeight.Bold
                 )
-            },
-
-            modifier = Modifier.fillMaxWidth()
-        ) {
-
-            Text(
-                text =
-                    if (positionAlertEnabled) {
-                        "✓ Оповещать по позиции"
-                    } else {
-                        "Оповещение по позиции выключено"
-                    }
-            )
-        }
+            }
 
 
-        if (positionAlertEnabled) {
+            if (
+                !canStart
+            ) {
+
+                Spacer(
+                    modifier =
+                        Modifier.height(
+                            8.dp
+                        )
+                )
+
+
+                Text(
+                    text =
+                        "Введите номер автомобиля и выберите пункт пропуска",
+
+                    color =
+                        SecondaryTextColor,
+
+                    fontSize =
+                        12.sp,
+
+                    textAlign =
+                        TextAlign.Center
+                )
+            }
+
 
             Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
-            OutlinedTextField(
-                value = positionAlertThreshold,
-
-                onValueChange = {
-                    onPositionAlertThresholdChange(
-                        it.filter { char ->
-                            char.isDigit()
-                        }
+                modifier =
+                    Modifier.height(
+                        12.dp
                     )
-                },
-
-                label = {
-                    Text("Позиция: или меньше")
-                },
-
-                placeholder = {
-                    Text("100")
-                },
-
-                singleLine = true,
-
-                modifier = Modifier.fillMaxWidth()
             )
-        }
 
-
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
-
-
-        Button(
-            onClick = {
-                onCalledAlertEnabledChange(
-                    !calledAlertEnabled
-                )
-            },
-
-            modifier = Modifier.fillMaxWidth()
-        ) {
 
             Text(
                 text =
-                    if (calledAlertEnabled) {
-                        "✓ Оповещать о вызове"
+                    "●  ГОТОВО К МОНИТОРИНГУ",
+
+                color =
+                    if (
+                        canStart
+                    ) {
+
+                        GreenColor
+
                     } else {
-                        "Оповещение о вызове выключено"
-                    }
+
+                        SecondaryTextColor
+                    },
+
+                fontSize =
+                    11.sp,
+
+                fontWeight =
+                    FontWeight.SemiBold
             )
-        }
 
 
-        Spacer(
-            modifier = Modifier.height(20.dp)
-        )
-
-
-        Button(
-            onClick = onStartTracking,
-
-            enabled = canStart,
-
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-        ) {
-
-            Text(
-                text = "Начать отслеживание"
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        14.dp
+                    )
             )
         }
     }
@@ -453,10 +1282,13 @@ private fun SetupScreen(
 
 @Composable
 private fun TrackingScreen(
+
     carNumber: String,
+
     checkpointName: String,
 
     positionAlertEnabled: Boolean,
+
     positionAlertThreshold: Int,
 
     calledAlertEnabled: Boolean
@@ -466,17 +1298,17 @@ private fun TrackingScreen(
         LocalContext.current
 
 
-    /* --------------------------------------------------------
-       ВСПЛЫВАЮЩЕЕ ПРЕДУПРЕЖДЕНИЕ
-       -------------------------------------------------------- */
-
     var alertVisible by remember {
         mutableStateOf(false)
     }
 
+
     var alertTitle by remember {
-        mutableStateOf("Оповещение QueueWatch")
+        mutableStateOf(
+            "Оповещение QueueWatch"
+        )
     }
+
 
     var alertMessage by remember {
         mutableStateOf("")
@@ -499,49 +1331,58 @@ private fun TrackingScreen(
             ).apply {
 
                 putExtra(
-                    QueueWatchService.EXTRA_CAR_NUMBER,
+                    QueueWatchService
+                        .EXTRA_CAR_NUMBER,
                     carNumber
                 )
 
                 putExtra(
-                    QueueWatchService.EXTRA_CHECKPOINT,
+                    QueueWatchService
+                        .EXTRA_CHECKPOINT,
                     checkpointName
                 )
 
                 putExtra(
-                    QueueWatchService.EXTRA_POSITION_ALERT_ENABLED,
+                    QueueWatchService
+                        .EXTRA_POSITION_ALERT_ENABLED,
                     positionAlertEnabled
                 )
 
                 putExtra(
-                    QueueWatchService.EXTRA_POSITION_THRESHOLD,
+                    QueueWatchService
+                        .EXTRA_POSITION_THRESHOLD,
                     positionAlertThreshold
                 )
 
                 /*
                  * Прогнозные уведомления отключены.
                  */
+
                 putExtra(
-                    QueueWatchService.EXTRA_FORECAST_ALERT_ENABLED,
+                    QueueWatchService
+                        .EXTRA_FORECAST_ALERT_ENABLED,
                     false
                 )
 
                 putExtra(
-                    QueueWatchService.EXTRA_FORECAST_MINUTES,
+                    QueueWatchService
+                        .EXTRA_FORECAST_MINUTES,
                     0
                 )
 
                 putExtra(
-                    QueueWatchService.EXTRA_CALLED_ALERT_ENABLED,
+                    QueueWatchService
+                        .EXTRA_CALLED_ALERT_ENABLED,
                     calledAlertEnabled
                 )
             }
 
 
-        androidx.core.content.ContextCompat.startForegroundService(
-            context,
-            intent
-        )
+        androidx.core.content.ContextCompat
+            .startForegroundService(
+                context,
+                intent
+            )
     }
 
 
@@ -563,17 +1404,23 @@ private fun TrackingScreen(
         mutableStateOf<Int?>(null)
     }
 
+
     var vehicleState by remember {
         mutableStateOf("")
     }
+
 
     var queueCount by remember {
         mutableStateOf<Int?>(null)
     }
 
+
     var message by remember {
-        mutableStateOf("Подготовка...")
+        mutableStateOf(
+            "Подготовка..."
+        )
     }
+
 
     var lastUpdate by remember {
         mutableStateOf("")
@@ -678,7 +1525,9 @@ private fun TrackingScreen(
             }
 
 
-            delay(1_000)
+            delay(
+                1_000
+            )
         }
     }
 
@@ -687,28 +1536,27 @@ private fun TrackingScreen(
        ПОДТВЕРЖДЕНИЕ ОПОВЕЩЕНИЯ
        -------------------------------------------------------- */
 
-    if (alertVisible) {
+    if (
+        alertVisible
+    ) {
 
         AlertDialog(
 
-            onDismissRequest = {
-                /*
-                 * Закрытие системной кнопкой
-                 * не считается подтверждением.
-                 */
-            },
+            onDismissRequest = {},
 
             title = {
 
                 Text(
-                    text = alertTitle
+                    text =
+                        alertTitle
                 )
             },
 
             text = {
 
                 Text(
-                    text = alertMessage
+                    text =
+                        alertMessage
                 )
             },
 
@@ -725,7 +1573,8 @@ private fun TrackingScreen(
                             ).apply {
 
                                 action =
-                                    QueueWatchService.ACTION_ACKNOWLEDGE_ALERT
+                                    QueueWatchService
+                                        .ACTION_ACKNOWLEDGE_ALERT
                             }
 
 
@@ -745,7 +1594,8 @@ private fun TrackingScreen(
                 ) {
 
                     Text(
-                        text = "ПОДТВЕРДИТЬ"
+                        text =
+                            "ПОДТВЕРДИТЬ"
                     )
                 }
             }
@@ -754,56 +1604,32 @@ private fun TrackingScreen(
 
 
     /* ========================================================
-       ЦВЕТА ЭКРАНА
+       СТАТУС
        ======================================================== */
 
-    val screenBackground =
-        Color(0xFF0B0F14)
-
-    val panelColor =
-        Color(0xFF151B22)
-
-    val secondaryPanelColor =
-        Color(0xFF1B232C)
-
-    val mainTextColor =
-        Color(0xFFF1F5F9)
-
-    val secondaryTextColor =
-        Color(0xFF9AA6B2)
-
-    val greenColor =
-        Color(0xFF3DDC84)
-
-    val yellowColor =
-        Color(0xFFFFC857)
-
-    val redColor =
-        Color(0xFFFF5A5F)
-
-    val blueColor =
-        Color(0xFF4DA3FF)
-
-
     val statusColor =
-        when (vehicleState) {
+        when (
+            vehicleState
+        ) {
 
             "IN_QUEUE" ->
-                greenColor
+                GreenColor
 
             "CALLED" ->
-                redColor
+                RedColor
 
             "UNKNOWN" ->
-                yellowColor
+                YellowColor
 
             else ->
-                blueColor
+                BlueColor
         }
 
 
     val statusText =
-        when (vehicleState) {
+        when (
+            vehicleState
+        ) {
 
             "IN_QUEUE" ->
                 "●  ЖИВАЯ ОЧЕРЕДЬ"
@@ -819,13 +1645,6 @@ private fun TrackingScreen(
         }
 
 
-    /*
-     * Это не прогноз времени.
-     *
-     * Шкала показывает только приближение
-     * текущей позиции к заданному порогу.
-     */
-
     val thresholdProgress =
         if (
             position != null &&
@@ -834,8 +1653,10 @@ private fun TrackingScreen(
         ) {
 
             (
-                positionAlertThreshold.toFloat() /
-                    position!!.toFloat()
+                positionAlertThreshold
+                    .toFloat() /
+                    position!!
+                        .toFloat()
             ).coerceIn(
                 0f,
                 1f
@@ -848,7 +1669,7 @@ private fun TrackingScreen(
 
 
     /* ========================================================
-       НОВЫЙ ЭКРАН
+       ЭКРАН
        ======================================================== */
 
     Surface(
@@ -856,7 +1677,7 @@ private fun TrackingScreen(
             Modifier.fillMaxSize(),
 
         color =
-            screenBackground
+            ScreenBackground
     ) {
 
         Column(
@@ -875,15 +1696,12 @@ private fun TrackingScreen(
         ) {
 
 
-            /* ------------------------------------------------
-               QUEUEWATCH
-               ------------------------------------------------ */
-
             Text(
-                text = "QueueWatch",
+                text =
+                    "QueueWatch",
 
                 color =
-                    secondaryTextColor,
+                    SecondaryTextColor,
 
                 fontSize =
                     18.sp,
@@ -895,22 +1713,26 @@ private fun TrackingScreen(
 
             Spacer(
                 modifier =
-                    Modifier.height(16.dp)
+                    Modifier.height(
+                        16.dp
+                    )
             )
 
 
             /* ------------------------------------------------
-               НОМЕР И ПУНКТ ПРОПУСКА
+               НОМЕР И ПУНКТ
                ------------------------------------------------ */
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(
-                        RoundedCornerShape(18.dp)
+                        RoundedCornerShape(
+                            18.dp
+                        )
                     )
                     .background(
-                        panelColor
+                        PanelColor
                     )
                     .padding(
                         horizontal = 16.dp,
@@ -931,7 +1753,7 @@ private fun TrackingScreen(
                             carNumber.uppercase(),
 
                         color =
-                            mainTextColor,
+                            MainTextColor,
 
                         fontSize =
                             36.sp,
@@ -946,7 +1768,9 @@ private fun TrackingScreen(
 
                     Spacer(
                         modifier =
-                            Modifier.height(4.dp)
+                            Modifier.height(
+                                4.dp
+                            )
                     )
 
 
@@ -955,7 +1779,7 @@ private fun TrackingScreen(
                             checkpointName.uppercase(),
 
                         color =
-                            secondaryTextColor,
+                            SecondaryTextColor,
 
                         fontSize =
                             15.sp,
@@ -972,22 +1796,26 @@ private fun TrackingScreen(
 
             Spacer(
                 modifier =
-                    Modifier.height(14.dp)
+                    Modifier.height(
+                        14.dp
+                    )
             )
 
 
             /* ------------------------------------------------
-               ТЕКУЩАЯ ПОЗИЦИЯ
+               ПОЗИЦИЯ
                ------------------------------------------------ */
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(
-                        RoundedCornerShape(24.dp)
+                        RoundedCornerShape(
+                            24.dp
+                        )
                     )
                     .background(
-                        panelColor
+                        PanelColor
                     )
                     .padding(
                         horizontal = 18.dp,
@@ -1008,7 +1836,7 @@ private fun TrackingScreen(
                             "ТЕКУЩАЯ ПОЗИЦИЯ",
 
                         color =
-                            secondaryTextColor,
+                            SecondaryTextColor,
 
                         fontSize =
                             14.sp,
@@ -1020,7 +1848,9 @@ private fun TrackingScreen(
 
                     Spacer(
                         modifier =
-                            Modifier.height(2.dp)
+                            Modifier.height(
+                                2.dp
+                            )
                     )
 
 
@@ -1065,29 +1895,36 @@ private fun TrackingScreen(
 
             Spacer(
                 modifier =
-                    Modifier.height(14.dp)
+                    Modifier.height(
+                        14.dp
+                    )
             )
 
 
             /* ------------------------------------------------
-               ШКАЛА ДО ПОРОГА
+               ШКАЛА ПОРОГА
                ------------------------------------------------ */
 
             if (
                 positionAlertEnabled &&
-                vehicleState == "IN_QUEUE"
+                vehicleState ==
+                "IN_QUEUE"
             ) {
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(
-                            RoundedCornerShape(18.dp)
+                            RoundedCornerShape(
+                                18.dp
+                            )
                         )
                         .background(
-                            secondaryPanelColor
+                            SecondaryPanelColor
                         )
-                        .padding(16.dp)
+                        .padding(
+                            16.dp
+                        )
                 ) {
 
                     Column {
@@ -1105,7 +1942,7 @@ private fun TrackingScreen(
                                     "До заданного порога",
 
                                 color =
-                                    secondaryTextColor,
+                                    SecondaryTextColor,
 
                                 fontSize =
                                     13.sp
@@ -1117,7 +1954,7 @@ private fun TrackingScreen(
                                     "≤ $positionAlertThreshold",
 
                                 color =
-                                    mainTextColor,
+                                    MainTextColor,
 
                                 fontSize =
                                     14.sp,
@@ -1130,19 +1967,27 @@ private fun TrackingScreen(
 
                         Spacer(
                             modifier =
-                                Modifier.height(10.dp)
+                                Modifier.height(
+                                    10.dp
+                                )
                         )
 
 
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(10.dp)
+                                .height(
+                                    10.dp
+                                )
                                 .clip(
-                                    RoundedCornerShape(50.dp)
+                                    RoundedCornerShape(
+                                        50.dp
+                                    )
                                 )
                                 .background(
-                                    Color(0xFF303A45)
+                                    Color(
+                                        0xFF303A45
+                                    )
                                 )
                         ) {
 
@@ -1151,12 +1996,16 @@ private fun TrackingScreen(
                                     .fillMaxWidth(
                                         thresholdProgress
                                     )
-                                    .height(10.dp)
+                                    .height(
+                                        10.dp
+                                    )
                                     .clip(
-                                        RoundedCornerShape(50.dp)
+                                        RoundedCornerShape(
+                                            50.dp
+                                        )
                                     )
                                     .background(
-                                        greenColor
+                                        GreenColor
                                     )
                             )
                         }
@@ -1164,7 +2013,9 @@ private fun TrackingScreen(
 
                         Spacer(
                             modifier =
-                                Modifier.height(7.dp)
+                                Modifier.height(
+                                    7.dp
+                                )
                         )
 
 
@@ -1181,7 +2032,7 @@ private fun TrackingScreen(
                                     "ДАЛЕКО",
 
                                 color =
-                                    secondaryTextColor,
+                                    SecondaryTextColor,
 
                                 fontSize =
                                     11.sp
@@ -1210,11 +2061,11 @@ private fun TrackingScreen(
                                         positionAlertThreshold
                                     ) {
 
-                                        greenColor
+                                        GreenColor
 
                                     } else {
 
-                                        secondaryTextColor
+                                        SecondaryTextColor
                                     },
 
                                 fontSize =
@@ -1230,7 +2081,9 @@ private fun TrackingScreen(
 
                 Spacer(
                     modifier =
-                        Modifier.height(14.dp)
+                        Modifier.height(
+                            14.dp
+                        )
                 )
             }
 
@@ -1243,12 +2096,16 @@ private fun TrackingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(
-                        RoundedCornerShape(18.dp)
+                        RoundedCornerShape(
+                            18.dp
+                        )
                     )
                     .background(
-                        secondaryPanelColor
+                        SecondaryPanelColor
                     )
-                    .padding(16.dp)
+                    .padding(
+                        16.dp
+                    )
             ) {
 
                 Column(
@@ -1272,7 +2129,7 @@ private fun TrackingScreen(
                                 "МАШИН В ОЧЕРЕДИ",
 
                             color =
-                                secondaryTextColor,
+                                SecondaryTextColor,
 
                             fontSize =
                                 12.sp
@@ -1281,11 +2138,12 @@ private fun TrackingScreen(
 
                         Text(
                             text =
-                                queueCount?.toString()
+                                queueCount
+                                    ?.toString()
                                     ?: "—",
 
                             color =
-                                mainTextColor,
+                                MainTextColor,
 
                             fontSize =
                                 23.sp,
@@ -1298,7 +2156,9 @@ private fun TrackingScreen(
 
                     Spacer(
                         modifier =
-                            Modifier.height(10.dp)
+                            Modifier.height(
+                                10.dp
+                            )
                     )
 
 
@@ -1318,7 +2178,7 @@ private fun TrackingScreen(
                                 "ПОСЛЕДНЕЕ ОБНОВЛЕНИЕ",
 
                             color =
-                                secondaryTextColor,
+                                SecondaryTextColor,
 
                             fontSize =
                                 12.sp
@@ -1332,7 +2192,7 @@ private fun TrackingScreen(
                                 },
 
                             color =
-                                mainTextColor,
+                                MainTextColor,
 
                             fontSize =
                                 16.sp,
@@ -1349,15 +2209,20 @@ private fun TrackingScreen(
 
 
             if (
-                vehicleState != "IN_QUEUE" &&
-                vehicleState != "CALLED" &&
+                vehicleState !=
+                "IN_QUEUE" &&
+                vehicleState !=
+                "CALLED" &&
                 message.isNotBlank() &&
-                message != "Подготовка..."
+                message !=
+                "Подготовка..."
             ) {
 
                 Spacer(
                     modifier =
-                        Modifier.height(12.dp)
+                        Modifier.height(
+                            12.dp
+                        )
                 )
 
 
@@ -1366,7 +2231,7 @@ private fun TrackingScreen(
                         message,
 
                     color =
-                        secondaryTextColor,
+                        SecondaryTextColor,
 
                     fontSize =
                         13.sp,
@@ -1379,13 +2244,11 @@ private fun TrackingScreen(
 
             Spacer(
                 modifier =
-                    Modifier.height(18.dp)
+                    Modifier.height(
+                        18.dp
+                    )
             )
 
-
-            /* ------------------------------------------------
-               СОСТОЯНИЕ ОТСЛЕЖИВАНИЯ
-               ------------------------------------------------ */
 
             Text(
                 text =
@@ -1393,14 +2256,15 @@ private fun TrackingScreen(
 
                 color =
                     if (
-                        vehicleState == "UNKNOWN"
+                        vehicleState ==
+                        "UNKNOWN"
                     ) {
 
-                        yellowColor
+                        YellowColor
 
                     } else {
 
-                        greenColor
+                        GreenColor
                     },
 
                 fontSize =
