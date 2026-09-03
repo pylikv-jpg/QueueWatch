@@ -43,6 +43,9 @@ jobs:
       - name: Apply progress-to-call fix
         run: python3 tools/apply_call_progress_fix.py
 
+      - name: Apply queue movement information
+        run: python3 tools/apply_queue_movement_info.py
+
       - name: Build debug APK
         run: gradle assembleDebug
 
