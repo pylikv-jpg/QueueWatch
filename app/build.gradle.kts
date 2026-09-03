@@ -12,8 +12,8 @@ android {
         applicationId = "com.pylikv.queuewatch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.1-queue-type-count"
+        versionCode = 3
+        versionName = "0.1.2-swipe-navigation"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
