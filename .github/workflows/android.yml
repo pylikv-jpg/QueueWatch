@@ -28,6 +28,9 @@ jobs:
       - name: Apply vehicle type queue count fix
         run: python3 tools/apply_queue_type_count_fix.py
 
+      - name: Apply swipe and back navigation fix
+        run: python3 tools/apply_swipe_navigation_fix.py
+
       - name: Build debug APK
         run: gradle assembleDebug
 
