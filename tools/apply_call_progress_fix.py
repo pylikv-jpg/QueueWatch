@@ -131,16 +131,38 @@ if old_right not in text:
     raise SystemExit("call progress: right-side label block not found")
 text = text.replace(old_right, new_right, 1)
 
-# Make the progress strip twice as thick: 10.dp -> 20.dp for both
-# the background track and the filled progress segment.
-progress_bar_height = '''                                .height(\n                                    10.dp\n                                )'''
-if text.count(progress_bar_height) < 2:
-    raise SystemExit("call progress: expected two 10.dp progress bar height anchors")
-text = text.replace(
-    progress_bar_height,
-    '''                                .height(\n                                    20.dp\n                                )''',
-    2,
-)
+# Make only the actual progress track and filled segment twice as thick.
+outer_bar = '''                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(
+                                    10.dp
+                                )'''
+outer_bar_new = '''                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(
+                                    20.dp
+                                )'''
+if outer_bar not in text:
+    raise SystemExit("call progress: outer progress bar anchor not found")
+text = text.replace(outer_bar, outer_bar_new, 1)
+
+inner_bar = '''                                modifier = Modifier
+                                    .fillMaxWidth(
+                                        callProgress
+                                    )
+                                    .height(
+                                        10.dp
+                                    )'''
+inner_bar_new = '''                                modifier = Modifier
+                                    .fillMaxWidth(
+                                        callProgress
+                                    )
+                                    .height(
+                                        20.dp
+                                    )'''
+if inner_bar not in text:
+    raise SystemExit("call progress: inner progress bar anchor not found")
+text = text.replace(inner_bar, inner_bar_new, 1)
 
 if "thresholdProgress" in text:
     raise SystemExit("call progress: old thresholdProgress reference remains")
