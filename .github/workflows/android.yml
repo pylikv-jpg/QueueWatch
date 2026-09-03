@@ -25,11 +25,14 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Restore stable debug signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: queuewatch-debug-keystore-v1
+      - name: Install fixed debug signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          base64 -d tools/queuewatch-debug.keystore.b64 > "$HOME/.android/debug.keystore"
+          keytool -list -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey | grep 'SHA256:'
 
       - name: Apply vehicle type queue count fix
         run: python3 tools/apply_queue_type_count_fix.py
