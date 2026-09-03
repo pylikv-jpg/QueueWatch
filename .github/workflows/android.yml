@@ -25,6 +25,9 @@ jobs:
         with:
           gradle-version: '8.13'
 
+      - name: Apply vehicle type queue count fix
+        run: python3 tools/apply_queue_type_count_fix.py
+
       - name: Build debug APK
         run: gradle assembleDebug
 
