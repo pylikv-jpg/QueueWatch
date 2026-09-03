@@ -131,8 +131,19 @@ if old_right not in text:
     raise SystemExit("call progress: right-side label block not found")
 text = text.replace(old_right, new_right, 1)
 
+# Make the progress strip twice as thick: 10.dp -> 20.dp for both
+# the background track and the filled progress segment.
+progress_bar_height = '''                                .height(\n                                    10.dp\n                                )'''
+if text.count(progress_bar_height) < 2:
+    raise SystemExit("call progress: expected two 10.dp progress bar height anchors")
+text = text.replace(
+    progress_bar_height,
+    '''                                .height(\n                                    20.dp\n                                )''',
+    2,
+)
+
 if "thresholdProgress" in text:
     raise SystemExit("call progress: old thresholdProgress reference remains")
 
 path.write_text(text, encoding="utf-8")
-print("Applied call progress fix")
+print("Applied call progress fix with 20.dp progress bar")
