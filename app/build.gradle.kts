@@ -12,8 +12,8 @@ android {
         applicationId = "com.pylikv.queuewatch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.1.5-fixed-signing"
+        versionCode = 7
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -25,6 +25,16 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+
+        create("release") {
+            val keystorePath = System.getenv("QUEUEWATCH_KEYSTORE_PATH")
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("QUEUEWATCH_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("QUEUEWATCH_KEY_ALIAS")
+                keyPassword = System.getenv("QUEUEWATCH_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -34,6 +44,7 @@ android {
 
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
