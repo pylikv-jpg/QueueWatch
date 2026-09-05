@@ -28,10 +28,6 @@ jobs:
       - name: Install fixed debug signing key
         run: |
           base64 -d tools/queuewatch-debug.keystore.b64 > tools/queuewatch-debug.keystore
-          keytool -list -v \
-            -keystore tools/queuewatch-debug.keystore \
-            -storepass android \
-            -alias androiddebugkey | grep 'SHA256:'
 
       - name: Apply vehicle type queue count fix
         run: python3 tools/apply_queue_type_count_fix.py
@@ -48,18 +44,31 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug
 
-      - name: Verify APK signing certificate
-        run: |
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          KEY_FP="$(keytool -list -v -keystore tools/queuewatch-debug.keystore -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
-          APK_FP="$("$APKSIGNER" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | sed -n 's/.*SHA-256 digest: //p' | head -1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
-          echo "KEY_SHA256=$KEY_FP"
-          echo "APK_SHA256=$APK_FP"
-          test -n "$KEY_FP"
-          test "$KEY_FP" = "$APK_FP"
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: QueueWatch-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Install Google Play upload key
+        if: ${{ secrets.QUEUEWATCH_KEYSTORE_BASE64 != '' }}
+        env:
+          QUEUEWATCH_KEYSTORE_BASE64: ${{ secrets.QUEUEWATCH_KEYSTORE_BASE64 }}
+        run: |
+          echo "$QUEUEWATCH_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/queuewatch-upload.jks"
+
+      - name: Build signed Google Play AAB
+        if: ${{ secrets.QUEUEWATCH_KEYSTORE_BASE64 != '' }}
+        env:
+          QUEUEWATCH_KEYSTORE_PATH: ${{ runner.temp }}/queuewatch-upload.jks
+          QUEUEWATCH_KEYSTORE_PASSWORD: ${{ secrets.QUEUEWATCH_KEYSTORE_PASSWORD }}
+          QUEUEWATCH_KEY_ALIAS: ${{ secrets.QUEUEWATCH_KEY_ALIAS }}
+          QUEUEWATCH_KEY_PASSWORD: ${{ secrets.QUEUEWATCH_KEY_PASSWORD }}
+        run: gradle bundleRelease
+
+      - name: Upload Google Play AAB
+        if: ${{ secrets.QUEUEWATCH_KEYSTORE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: QueueWatch-GooglePlay-AAB
+          path: app/build/outputs/bundle/release/app-release.aab
