@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - fix/persistent-monitoring-restart
 
 env:
   PLAY_KEYSTORE_B64: ${{ secrets.QUEUEWATCH_KEYSTORE_BASE64 }}
@@ -45,6 +46,9 @@ jobs:
 
       - name: Apply queue movement information
         run: python3 tools/apply_queue_movement_info.py
+
+      - name: Apply persistent monitoring and reboot recovery fix
+        run: python3 tools/apply_persistent_monitoring_fix.py
 
       - name: Build debug APK
         run: gradle assembleDebug
