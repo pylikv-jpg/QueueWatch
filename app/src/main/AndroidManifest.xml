@@ -14,9 +14,13 @@
     <uses-permission
         android:name="android.permission.FOREGROUND_SERVICE" />
 
-    <!-- Foreground Service для передачи данных/сети -->
+    <!-- Длительный пользовательский мониторинг очереди, не ограниченный 6 часами dataSync -->
     <uses-permission
-        android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+        android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Восстановление активного отслеживания после перезагрузки телефона -->
+    <uses-permission
+        android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Не даём CPU полностью заснуть во время мониторинга -->
     <uses-permission
@@ -70,7 +74,27 @@
 
             android:exported="false"
 
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="specialUse">
+
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started continuous border queue position monitoring with time-critical position and vehicle-call alerts; interruption can cause the user to miss a border crossing call." />
+
+        </service>
+
+
+        <!-- Восстановление пользовательского мониторинга после перезагрузки/обновления -->
+        <receiver
+            android:name=".QueueWatchBootReceiver"
+            android:enabled="true"
+            android:exported="false">
+
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+
+        </receiver>
 
     </application>
 
