@@ -1,10 +1,12 @@
 package com.pylikv.queuewatch
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -100,6 +102,9 @@ private val BlueColor =
 
 private val BorderColor =
     Color(0xFF35414D)
+
+private const val OFFICIAL_SOURCE_URL =
+    "https://belarusborder.by/"
 
 
 /* ============================================================
@@ -1271,6 +1276,114 @@ private fun SetupScreen(
                         14.dp
                     )
             )
+
+
+            OfficialSourceNotice()
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        14.dp
+                    )
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun OfficialSourceNotice() {
+
+    val context =
+        LocalContext.current
+
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(
+                RoundedCornerShape(
+                    16.dp
+                )
+            )
+            .background(
+                SecondaryPanelColor
+            )
+            .padding(
+                14.dp
+            )
+    ) {
+
+        Column {
+
+            Text(
+                text =
+                    "ИСТОЧНИК ИНФОРМАЦИИ",
+
+                color =
+                    MainTextColor,
+
+                fontSize =
+                    13.sp,
+
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        6.dp
+                    )
+            )
+
+
+            Text(
+                text =
+                    "Официальная система электронной очереди РУП «Белтаможсервис»: belarusborder.by",
+
+                modifier = Modifier.clickable {
+                    context.startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(
+                                OFFICIAL_SOURCE_URL
+                            )
+                        )
+                    )
+                },
+
+                color =
+                    BlueColor,
+
+                fontSize =
+                    13.sp,
+
+                fontWeight =
+                    FontWeight.SemiBold
+            )
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        8.dp
+                    )
+            )
+
+
+            Text(
+                text =
+                    "QueueWatch — независимое неофициальное приложение. Оно не представляет РУП «Белтаможсервис», Государственный пограничный комитет или другие государственные органы Республики Беларусь. Данные предоставляются в информационных целях и могут поступать с задержкой. Перед поездкой проверяйте сведения в официальном источнике.",
+
+                color =
+                    SecondaryTextColor,
+
+                fontSize =
+                    12.sp
+            )
         }
     }
 }
@@ -2272,6 +2385,25 @@ private fun TrackingScreen(
 
                 fontWeight =
                     FontWeight.SemiBold
+            )
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        18.dp
+                    )
+            )
+
+
+            OfficialSourceNotice()
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(
+                        14.dp
+                    )
             )
         }
     }
