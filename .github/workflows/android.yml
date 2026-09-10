@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - codex/queuewatch-source-disclosure
 
 env:
   PLAY_KEYSTORE_B64: ${{ secrets.QUEUEWATCH_KEYSTORE_BASE64 }}

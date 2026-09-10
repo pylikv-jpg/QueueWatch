@@ -104,7 +104,7 @@ private val BorderColor =
     Color(0xFF35414D)
 
 private const val OFFICIAL_SOURCE_URL =
-    "https://belarusborder.by/"
+    "https://declarant.by/ru/belarusborder/"
 
 
 /* ============================================================
@@ -1342,7 +1342,7 @@ private fun OfficialSourceNotice() {
 
             Text(
                 text =
-                    "Официальная система электронной очереди РУП «Белтаможсервис»: belarusborder.by",
+                    "Система электронной очереди РУП «Белтаможсервис»:\nhttps://declarant.by/ru/belarusborder/",
 
                 modifier = Modifier.clickable {
                     context.startActivity(
@@ -1373,6 +1373,16 @@ private fun OfficialSourceNotice() {
                     )
             )
 
+
+            Text(
+                text = "Мониторинг очереди РУП «Белтаможсервис»:\nhttps://mon.declarant.by/zone",
+                modifier = Modifier.clickable {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mon.declarant.by/zone")))
+                }.padding(vertical = 8.dp),
+                color = BlueColor,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
 
             Text(
                 text =
