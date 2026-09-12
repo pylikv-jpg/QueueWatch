@@ -10,67 +10,90 @@
     <uses-permission
         android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Работа Foreground Service -->
+    <!-- Базовое разрешение Foreground Service -->
     <uses-permission
         android:name="android.permission.FOREGROUND_SERVICE" />
 
-    <!-- Foreground Service для передачи данных/сети -->
+    <!--
+        QueueWatch выполняет длительный, явно запущенный пользователем
+        мониторинг позиции автомобиля. dataSync не подходит: Android 15+
+        ограничивает его шестью часами в сутки. Для этой пользовательской
+        длительной задачи используется специальный тип FGS.
+    -->
     <uses-permission
-        android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+        android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
-    <!-- Не даём CPU полностью заснуть во время мониторинга -->
+    <!-- Не даём CPU полностью заснуть во время активного мониторинга -->
     <uses-permission
         android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Восстановление явно активной сессии после перезагрузки телефона -->
+    <uses-permission
+        android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
 
     <application
-
         android:allowBackup="true"
-
         android:icon="@drawable/queuewatch_icon"
-
         android:roundIcon="@drawable/queuewatch_icon"
-
         android:label="QueueWatch"
-
         android:supportsRtl="true"
-
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
 
+        <!--
+            Новый launcher сначала проверяет сохранённую активную сессию.
+            Если сессия есть, сразу показывает отслеживание; если нет —
+            открывает обычный экран ввода MainActivity.
+        -->
         <activity
-
-            android:name=".MainActivity"
-
+            android:name=".SessionLauncherActivity"
             android:exported="true">
 
-
             <intent-filter>
-
-                <action
-                    android:name="android.intent.action.MAIN" />
-
-                <category
-                    android:name="android.intent.category.LAUNCHER" />
-
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
         </activity>
 
 
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
+
         <!-- =================================================
-             ФОНОВЫЙ МОНИТОРИНГ
+             ДЛИТЕЛЬНЫЙ ФОНОВЫЙ МОНИТОРИНГ
              ================================================= -->
-
         <service
-
             android:name=".QueueWatchService"
-
             android:enabled="true"
-
             android:exported="false"
+            android:foregroundServiceType="specialUse">
 
-            android:foregroundServiceType="dataSync" />
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-initiated continuous monitoring of a selected vehicle in an electronic border queue with time-critical position and checkpoint-call alerts; monitoring can last longer than six hours." />
+
+        </service>
+
+
+        <!--
+            Если пользователь не остановил отслеживание вручную, после
+            перезагрузки/обновления приложения пробуем восстановить сервис.
+        -->
+        <receiver
+            android:name=".QueueWatchBootReceiver"
+            android:enabled="true"
+            android:exported="false">
+
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+
+        </receiver>
 
     </application>
 
