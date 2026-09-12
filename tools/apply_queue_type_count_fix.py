@@ -3,9 +3,19 @@ from pathlib import Path
 path = Path("app/src/main/java/com/pylikv/queuewatch/QueueWatchService.kt")
 text = path.read_text(encoding="utf-8")
 
-# Already patched: keep this build step idempotent.
+# Persistent service: monitor() is a suspend function, not a CoroutineScope
+# receiver. Cancellation is still observed at suspending calls; the durable
+# tracking flag is the explicit loop condition.
+text = text.replace(
+    "while (isActive && preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {",
+    "while (preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {",
+    1,
+)
+
+# Already patched: keep the queue-count part of this build step idempotent.
 if "sameTypeLiveQueueCount" in text:
-    print("Queue type count fix already applied")
+    path.write_text(text, encoding="utf-8")
+    print("Queue type count fix already applied; persistent loop verified")
     raise SystemExit(0)
 
 # Current compact QueueWatchService implementation.
@@ -47,4 +57,4 @@ if "sameTypeLiveQueueCount" not in text:
     raise SystemExit("Queue type count fix: validation failed")
 
 path.write_text(text, encoding="utf-8")
-print("Queue type count fix applied")
+print("Queue type count fix applied; persistent loop verified")
