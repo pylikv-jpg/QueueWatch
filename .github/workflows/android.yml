@@ -42,8 +42,8 @@ jobs:
       - name: Verify Forecast flavor configuration
         run: python3 tools/verify_forecast_flavors.py
 
-      - name: Run Forecast V1 engine tests
-        run: gradle testForecastDebugUnitTest --tests "com.pylikv.queuewatch.forecast.ForecastEngineV1Test"
+      - name: Run Forecast unit tests
+        run: gradle testForecastDebugUnitTest
 
       - name: Build stable and Forecast debug APKs
         run: gradle assembleStableDebug assembleForecastDebug
