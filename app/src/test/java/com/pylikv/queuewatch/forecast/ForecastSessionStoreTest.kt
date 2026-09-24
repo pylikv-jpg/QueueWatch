@@ -213,4 +213,67 @@ class ForecastSessionStoreTest {
             )
         )
     }
+
+    @Test
+    fun sessionStartAndLastInQueueTimesRemainAvailableAfterCall() {
+        val storage =
+            FakeStorage()
+
+        val store =
+            ForecastSessionStore(
+                storage = storage,
+                sessionIdFactory = {
+                    "session-timing"
+                }
+            )
+
+        store.ensureSession(
+            localCarKey =
+                "AA1234|checkpoint-a",
+            startedAtMillis =
+                1_000L
+        )
+
+        store.markInQueue(
+            localCarKey =
+                "AA1234|checkpoint-a",
+            observedAtMillis =
+                2_000L
+        )
+
+        store.markInQueue(
+            localCarKey =
+                "AA1234|checkpoint-a",
+            observedAtMillis =
+                3_000L
+        )
+
+        store.markCalled(
+            localCarKey =
+                "AA1234|checkpoint-a",
+            calledAtMillis =
+                4_000L
+        )
+
+        assertEquals(
+            1_000L,
+            store.startedAtMillis(
+                "AA1234|checkpoint-a"
+            )
+        )
+
+        assertEquals(
+            3_000L,
+            store.lastInQueueAtMillis(
+                "AA1234|checkpoint-a"
+            )
+        )
+
+        assertEquals(
+            4_000L,
+            store.calledAtMillis(
+                "AA1234|checkpoint-a"
+            )
+        )
+    }
 }
