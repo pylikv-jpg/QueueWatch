@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - fix/persistent-background-tracking
+      - feature/forecast-experiment
 
 env:
   PLAY_KEYSTORE_B64: ${{ secrets.QUEUEWATCH_KEYSTORE_BASE64 }}
@@ -34,6 +35,9 @@ jobs:
 
       - name: Install fixed debug signing key
         run: base64 -d tools/queuewatch-debug.keystore.b64 > tools/queuewatch-debug.keystore
+
+      - name: Verify shipped fixes are materialized
+        run: python3 tools/verify_materialized_fixes.py
 
       - name: Apply vehicle type queue count fix
         run: python3 tools/apply_queue_type_count_fix.py
