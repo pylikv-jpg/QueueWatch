@@ -5,6 +5,8 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -126,6 +129,10 @@ fun QueueWatchApp() {
         mutableStateOf(false)
     }
 
+    var hasTrackingSession by rememberSaveable {
+        mutableStateOf(false)
+    }
+
     var positionAlertEnabled by rememberSaveable {
         mutableStateOf(true)
     }
@@ -139,11 +146,49 @@ fun QueueWatchApp() {
     }
 
 
+    BackHandler(
+        enabled = trackingStarted
+    ) {
+        trackingStarted = false
+    }
+
+
     MaterialTheme {
 
         Surface(
-            modifier =
-                Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(
+                    trackingStarted,
+                    hasTrackingSession
+                ) {
+                    var horizontalDrag = 0f
+
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            horizontalDrag = 0f
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            horizontalDrag += dragAmount
+                            change.consume()
+                        },
+                        onDragEnd = {
+                            when {
+                                horizontalDrag > 100f && trackingStarted ->
+                                    trackingStarted = false
+
+                                horizontalDrag < -100f &&
+                                    !trackingStarted &&
+                                    hasTrackingSession ->
+                                    trackingStarted = true
+                            }
+                            horizontalDrag = 0f
+                        },
+                        onDragCancel = {
+                            horizontalDrag = 0f
+                        }
+                    )
+                },
 
             color =
                 ScreenBackground
@@ -191,6 +236,7 @@ fun QueueWatchApp() {
                     },
 
                     onStartTracking = {
+                        hasTrackingSession = true
                         trackingStarted = true
                     }
                 )
@@ -1540,6 +1586,19 @@ private fun TrackingScreen(
     }
 
 
+    var trackingStartPosition by remember {
+        mutableStateOf<Int?>(null)
+    }
+
+    var trackingStartTime by remember {
+        mutableStateOf<Long?>(null)
+    }
+
+    var movementElapsedMs by remember {
+        mutableStateOf(0L)
+    }
+
+
     LaunchedEffect(Unit) {
 
         while (true) {
@@ -1599,6 +1658,73 @@ private fun TrackingScreen(
                     QueueWatchService.KEY_LAST_UPDATE,
                     ""
                 ) ?: ""
+
+
+            val movementSessionId =
+                carNumber.trim().uppercase() + "|" + checkpointName.trim().uppercase()
+
+            val savedMovementSessionId =
+                preferences.getString(
+                    "movement_session_id",
+                    ""
+                ) ?: ""
+
+            if (
+                vehicleState == "IN_QUEUE" &&
+                position != null &&
+                position!! > 0
+            ) {
+                if (savedMovementSessionId != movementSessionId) {
+                    val now = System.currentTimeMillis()
+                    preferences.edit()
+                        .putString("movement_session_id", movementSessionId)
+                        .putInt("movement_start_position", position!!)
+                        .putLong("movement_start_time", now)
+                        .apply()
+
+                    trackingStartPosition = position
+                    trackingStartTime = now
+                    movementElapsedMs = 0L
+                } else {
+                    trackingStartPosition =
+                        if (preferences.contains("movement_start_position")) {
+                            preferences.getInt("movement_start_position", 0)
+                        } else {
+                            null
+                        }
+
+                    trackingStartTime =
+                        if (preferences.contains("movement_start_time")) {
+                            preferences.getLong("movement_start_time", 0L)
+                        } else {
+                            null
+                        }
+
+                    movementElapsedMs =
+                        trackingStartTime?.let { start ->
+                            (System.currentTimeMillis() - start).coerceAtLeast(0L)
+                        } ?: 0L
+                }
+            } else if (savedMovementSessionId == movementSessionId) {
+                trackingStartPosition =
+                    if (preferences.contains("movement_start_position")) {
+                        preferences.getInt("movement_start_position", 0)
+                    } else {
+                        null
+                    }
+
+                trackingStartTime =
+                    if (preferences.contains("movement_start_time")) {
+                        preferences.getLong("movement_start_time", 0L)
+                    } else {
+                        null
+                    }
+
+                movementElapsedMs =
+                    trackingStartTime?.let { start ->
+                        (System.currentTimeMillis() - start).coerceAtLeast(0L)
+                    } ?: 0L
+            }
 
 
             val serviceAlertActive =
@@ -1739,6 +1865,33 @@ private fun TrackingScreen(
         }
 
 
+    val positionsPassed =
+        if (
+            trackingStartPosition != null &&
+            position != null
+        ) {
+            (trackingStartPosition!! - position!!).coerceAtLeast(0)
+        } else {
+            null
+        }
+
+    val positionsToCall =
+        when {
+            vehicleState == "CALLED" -> 0
+            position != null && position!! > 0 -> position
+            else -> null
+        }
+
+    val elapsedTotalMinutes = movementElapsedMs / 60_000L
+    val elapsedHours = elapsedTotalMinutes / 60L
+    val elapsedMinutes = elapsedTotalMinutes % 60L
+    val elapsedText =
+        if (elapsedHours > 0L) {
+            "${elapsedHours} ч ${elapsedMinutes} мин"
+        } else {
+            "${elapsedMinutes} мин"
+        }
+
     val statusText =
         when (
             vehicleState
@@ -1758,26 +1911,28 @@ private fun TrackingScreen(
         }
 
 
-    val thresholdProgress =
-        if (
-            position != null &&
-            position!! > 0 &&
-            positionAlertThreshold > 0
-        ) {
+    val callProgress =
+        when {
 
-            (
-                positionAlertThreshold
-                    .toFloat() /
-                    position!!
-                        .toFloat()
-            ).coerceIn(
-                0f,
+            vehicleState == "CALLED" ->
                 1f
-            )
 
-        } else {
+            position != null &&
+                position!! > 0 &&
+                queueCount != null &&
+                queueCount!! > 0 ->
+                (
+                    (queueCount!! - position!! + 1)
+                        .toFloat() /
+                        queueCount!!
+                            .toFloat()
+                ).coerceIn(
+                    0f,
+                    1f
+                )
 
-            0f
+            else ->
+                0f
         }
 
 
@@ -2015,13 +2170,12 @@ private fun TrackingScreen(
 
 
             /* ------------------------------------------------
-               ШКАЛА ПОРОГА
+               ШКАЛА ДО ВЫЗОВА
                ------------------------------------------------ */
 
             if (
-                positionAlertEnabled &&
-                vehicleState ==
-                "IN_QUEUE"
+                vehicleState == "IN_QUEUE" ||
+                vehicleState == "CALLED"
             ) {
 
                 Box(
@@ -2052,7 +2206,7 @@ private fun TrackingScreen(
 
                             Text(
                                 text =
-                                    "До заданного порога",
+                                    "До вызова",
 
                                 color =
                                     SecondaryTextColor,
@@ -2064,7 +2218,7 @@ private fun TrackingScreen(
 
                             Text(
                                 text =
-                                    "≤ $positionAlertThreshold",
+                                    if (vehicleState == "CALLED") "ВЫЗВАН" else "ПОЗИЦИЯ 1",
 
                                 color =
                                     MainTextColor,
@@ -2090,7 +2244,7 @@ private fun TrackingScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(
-                                    10.dp
+                                    20.dp
                                 )
                                 .clip(
                                     RoundedCornerShape(
@@ -2107,10 +2261,10 @@ private fun TrackingScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(
-                                        thresholdProgress
+                                        callProgress
                                     )
                                     .height(
-                                        10.dp
+                                        20.dp
                                     )
                                     .clip(
                                         RoundedCornerShape(
@@ -2142,7 +2296,7 @@ private fun TrackingScreen(
 
                             Text(
                                 text =
-                                    "ДАЛЕКО",
+                                    "НАЧАЛО ОЧЕРЕДИ",
 
                                 color =
                                     SecondaryTextColor,
@@ -2155,23 +2309,27 @@ private fun TrackingScreen(
                             Text(
                                 text =
                                     if (
-                                        position != null &&
-                                        position!! <=
-                                        positionAlertThreshold
+                                        vehicleState == "CALLED"
                                     ) {
 
-                                        "ПОРОГ ДОСТИГНУТ"
+                                        "ВЫЗВАН"
+
+                                    } else if (
+                                        position != null &&
+                                        position!! <= 5
+                                    ) {
+
+                                        "СКОРО ВЫЗОВ"
 
                                     } else {
 
-                                        "БЛИЗКО"
+                                        "БЛИЖЕ К ВЫЗОВУ"
                                     },
 
                                 color =
                                     if (
-                                        position != null &&
-                                        position!! <=
-                                        positionAlertThreshold
+                                        vehicleState == "CALLED" ||
+                                        (position != null && position!! <= 5)
                                     ) {
 
                                         GreenColor
@@ -2188,6 +2346,35 @@ private fun TrackingScreen(
                                     FontWeight.Bold
                             )
                         }
+
+                        Spacer(
+                            modifier = Modifier.height(12.dp)
+                        )
+
+                        Text(
+                            text =
+                                if (positionsPassed != null) {
+                                    "За $elapsedText пройдено: $positionsPassed позиций"
+                                } else {
+                                    "За — пройдено: — позиций"
+                                },
+                            color = MainTextColor,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Spacer(
+                            modifier = Modifier.height(4.dp)
+                        )
+
+                        Text(
+                            text =
+                                "До вызова осталось: ${positionsToCall?.toString() ?: "—"} позиций",
+                            color =
+                                if (vehicleState == "CALLED") GreenColor else SecondaryTextColor,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
 
