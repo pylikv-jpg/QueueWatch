@@ -200,9 +200,11 @@ Cases:
 Group by checkpoint + vehicle type + near-identical observation transition. For each group:
 - take positive `previous_position-current_position`;
 - median delta = queue advance;
-- elapsed time is derived from prior observation timing for those vehicles when possible;
+- sort independent movement batches by checkpoint + vehicle type;
+- elapsed time for a batch is the interval since the previous valid movement batch for the same checkpoint/type;
+- if that interval crosses a quality-detected logging gap, do not derive a speed sample from it;
 - reject zero/negative elapsed;
-- derive positions/hour;
+- derive positions/hour as batch median movement divided by elapsed hours;
 - cap validity at 200 positions/hour;
 - retain `supporting_vehicles`.
 
@@ -215,7 +217,7 @@ def live_speed_at(batches, timestamp_ms, window_minutes=60):
     ...
 ```
 
-Return median rate + independent batch count using only batches with `end_timestamp <= timestamp_ms`.
+Return median rate + independent batch count using only speed-bearing batches with `end_timestamp <= timestamp_ms` and `end_timestamp >= timestamp_ms - window_minutes*60_000`.
 
 - [ ] **Step 4: Run tests and commit**
 
