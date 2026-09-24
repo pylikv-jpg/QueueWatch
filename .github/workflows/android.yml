@@ -42,31 +42,37 @@ jobs:
       - name: Verify Forecast flavor configuration
         run: python3 tools/verify_forecast_flavors.py
 
-      - name: Build debug APK
-        run: gradle assembleDebug
+      - name: Build stable and Forecast debug APKs
+        run: gradle assembleStableDebug assembleForecastDebug
 
-      - name: Upload APK
+      - name: Upload stable APK
         uses: actions/upload-artifact@v4
         with:
-          name: QueueWatch-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: QueueWatch-stable-debug
+          path: app/build/outputs/apk/stable/debug/app-stable-debug.apk
+
+      - name: Upload Forecast APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QueueWatch-Forecast-debug
+          path: app/build/outputs/apk/forecast/debug/app-forecast-debug.apk
 
       - name: Install Google Play upload key
         if: ${{ env.PLAY_KEYSTORE_B64 != '' }}
         run: echo "$PLAY_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/queuewatch-upload.jks"
 
-      - name: Build signed Google Play AAB
+      - name: Build signed Google Play stable AAB
         if: ${{ env.PLAY_KEYSTORE_B64 != '' }}
         env:
           QUEUEWATCH_KEYSTORE_PATH: ${{ runner.temp }}/queuewatch-upload.jks
           QUEUEWATCH_KEYSTORE_PASSWORD: ${{ env.PLAY_KEYSTORE_PASSWORD }}
           QUEUEWATCH_KEY_ALIAS: ${{ env.PLAY_KEY_ALIAS }}
           QUEUEWATCH_KEY_PASSWORD: ${{ env.PLAY_KEY_PASSWORD }}
-        run: gradle bundleRelease
+        run: gradle bundleStableRelease
 
-      - name: Upload Google Play AAB
+      - name: Upload Google Play stable AAB
         if: ${{ env.PLAY_KEYSTORE_B64 != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: QueueWatch-GooglePlay-AAB
-          path: app/build/outputs/bundle/release/app-release.aab
+          path: app/build/outputs/bundle/stableRelease/app-stable-release.aab

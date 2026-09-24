@@ -1,0 +1,3 @@
+<resources>
+    <bool name="forecast_enabled">false</bool>
+</resources>

@@ -9,13 +9,27 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.pylikv.queuewatch"
         minSdk = 26
         targetSdk = 36
         versionCode = 12
         versionName = "1.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    flavorDimensions += "mode"
+
+    productFlavors {
+        create("stable") {
+            dimension = "mode"
+            applicationId = "com.pylikv.queuewatch"
+        }
+
+        create("forecast") {
+            dimension = "mode"
+            applicationId = "com.pylikv.queuewatch.forecast"
+            versionNameSuffix = "-forecast"
+        }
     }
 
     signingConfigs {
