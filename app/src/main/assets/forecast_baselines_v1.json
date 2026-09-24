@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "algorithm_version": "v1",
+  "generated_at": "2026-09-24T00:00:00Z",
+  "data_cutoff": null,
+  "source": {
+    "repository": "pylikv-jpg/QueueLoggerData",
+    "record_timestamp_based": true,
+    "status": "placeholder_until_backtest_export"
+  },
+  "entries": []
+}
