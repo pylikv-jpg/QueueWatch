@@ -52,7 +52,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pylikv.queuewatch.forecast.ForecastConfidence
+import com.pylikv.queuewatch.forecast.ForecastSessionStore
+import com.pylikv.queuewatch.forecast.formatConfidence
+import com.pylikv.queuewatch.forecast.formatEtaMinutes
+import com.pylikv.queuewatch.forecast.formatForecastSpeed
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 class MainActivity : ComponentActivity() {
@@ -354,7 +362,7 @@ private fun SetupScreen(
 
             Text(
                 text =
-                    "QueueWatch",
+                    if (forecastEnabled) "QueueWatch Forecast" else "QueueWatch",
 
                 color =
                     MainTextColor,
@@ -1456,6 +1464,11 @@ private fun TrackingScreen(
     val context =
         LocalContext.current
 
+    val forecastEnabled =
+        context.resources.getBoolean(
+            R.bool.forecast_enabled
+        )
+
 
     var alertVisible by remember {
         mutableStateOf(false)
@@ -1599,6 +1612,31 @@ private fun TrackingScreen(
     }
 
 
+    var forecastEtaMinutes by remember {
+        mutableStateOf<Double?>(null)
+    }
+
+    var forecastLowMinutes by remember {
+        mutableStateOf<Double?>(null)
+    }
+
+    var forecastHighMinutes by remember {
+        mutableStateOf<Double?>(null)
+    }
+
+    var forecastConfidence by remember {
+        mutableStateOf<ForecastConfidence?>(null)
+    }
+
+    var forecastEffectiveSpeed by remember {
+        mutableStateOf<Double?>(null)
+    }
+
+    var forecastUpdatedAtMillis by remember {
+        mutableStateOf<Long?>(null)
+    }
+
+
     LaunchedEffect(Unit) {
 
         while (true) {
@@ -1658,6 +1696,94 @@ private fun TrackingScreen(
                     QueueWatchService.KEY_LAST_UPDATE,
                     ""
                 ) ?: ""
+
+
+            if (
+                forecastEnabled
+            ) {
+                val savedCarNumber =
+                    preferences.getString(
+                        QueueWatchService.KEY_CAR_NUMBER,
+                        ""
+                    )
+                        ?.trim()
+                        ?.uppercase()
+                        .orEmpty()
+
+                val savedCheckpoint =
+                    preferences.getString(
+                        QueueWatchService.KEY_CHECKPOINT,
+                        ""
+                    )
+                        ?.trim()
+                        .orEmpty()
+
+                val forecastSessionMatches =
+                    savedCarNumber ==
+                        carNumber.trim()
+                            .uppercase() &&
+                        savedCheckpoint ==
+                            checkpointName.trim()
+
+                if (
+                    forecastSessionMatches
+                ) {
+                    forecastEtaMinutes =
+                        preferences.getString(
+                            ForecastSessionStore.KEY_ETA_MINUTES,
+                            null
+                        )
+                            ?.toDoubleOrNull()
+
+                    forecastLowMinutes =
+                        preferences.getString(
+                            ForecastSessionStore.KEY_LOW_MINUTES,
+                            null
+                        )
+                            ?.toDoubleOrNull()
+
+                    forecastHighMinutes =
+                        preferences.getString(
+                            ForecastSessionStore.KEY_HIGH_MINUTES,
+                            null
+                        )
+                            ?.toDoubleOrNull()
+
+                    forecastConfidence =
+                        preferences.getString(
+                            ForecastSessionStore.KEY_CONFIDENCE,
+                            null
+                        )
+                            ?.let {
+                                runCatching {
+                                    ForecastConfidence.valueOf(
+                                        it
+                                    )
+                                }.getOrNull()
+                            }
+
+                    forecastEffectiveSpeed =
+                        preferences.getString(
+                            ForecastSessionStore.KEY_EFFECTIVE_SPEED,
+                            null
+                        )
+                            ?.toDoubleOrNull()
+
+                    forecastUpdatedAtMillis =
+                        preferences.getString(
+                            ForecastSessionStore.KEY_UPDATED_AT,
+                            null
+                        )
+                            ?.toLongOrNull()
+                } else {
+                    forecastEtaMinutes = null
+                    forecastLowMinutes = null
+                    forecastHighMinutes = null
+                    forecastConfidence = null
+                    forecastEffectiveSpeed = null
+                    forecastUpdatedAtMillis = null
+                }
+            }
 
 
             val movementSessionId =
@@ -1892,6 +2018,21 @@ private fun TrackingScreen(
             "${elapsedMinutes} мин"
         }
 
+    val forecastUpdatedText =
+        forecastUpdatedAtMillis
+            ?.let {
+                SimpleDateFormat(
+                    "HH:mm:ss",
+                    Locale.getDefault()
+                ).format(
+                    Date(
+                        it
+                    )
+                )
+            }
+            ?: "—"
+
+
     val statusText =
         when (
             vehicleState
@@ -1951,6 +2092,10 @@ private fun TrackingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(
+                    rememberScrollState(),
+                    enabled = forecastEnabled
+                )
                 .padding(
                     horizontal = 20.dp,
                     vertical = 20.dp
@@ -2374,6 +2519,210 @@ private fun TrackingScreen(
                                 if (vehicleState == "CALLED") GreenColor else SecondaryTextColor,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+
+                Spacer(
+                    modifier =
+                        Modifier.height(
+                            14.dp
+                        )
+                )
+            }
+
+
+            if (
+                forecastEnabled &&
+                vehicleState ==
+                    "IN_QUEUE"
+            ) {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(
+                            RoundedCornerShape(
+                                18.dp
+                            )
+                        )
+                        .background(
+                            SecondaryPanelColor
+                        )
+                        .padding(
+                            16.dp
+                        )
+                ) {
+
+                    Column(
+                        modifier =
+                            Modifier.fillMaxWidth()
+                    ) {
+
+                        Text(
+                            text =
+                                "ПРОГНОЗ ДО ВЫЗОВА",
+
+                            color =
+                                SecondaryTextColor,
+
+                            fontSize =
+                                12.sp,
+
+                            fontWeight =
+                                FontWeight.SemiBold
+                        )
+
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(
+                                    8.dp
+                                )
+                        )
+
+
+                        if (
+                            forecastEtaMinutes != null &&
+                            forecastLowMinutes != null &&
+                            forecastHighMinutes != null &&
+                            forecastConfidence != null &&
+                            forecastEffectiveSpeed != null
+                        ) {
+
+                            Text(
+                                text =
+                                    "Ориентировочно ${formatEtaMinutes(forecastEtaMinutes!!)}",
+
+                                color =
+                                    MainTextColor,
+
+                                fontSize =
+                                    22.sp,
+
+                                fontWeight =
+                                    FontWeight.Bold
+                            )
+
+
+                            Spacer(
+                                modifier =
+                                    Modifier.height(
+                                        6.dp
+                                    )
+                            )
+
+
+                            Text(
+                                text =
+                                    "Диапазон: ${formatEtaMinutes(forecastLowMinutes!!)} – ${formatEtaMinutes(forecastHighMinutes!!)}",
+
+                                color =
+                                    SecondaryTextColor,
+
+                                fontSize =
+                                    13.sp
+                            )
+
+
+                            Spacer(
+                                modifier =
+                                    Modifier.height(
+                                        4.dp
+                                    )
+                            )
+
+
+                            Text(
+                                text =
+                                    "Надёжность: ${formatConfidence(forecastConfidence!!)}",
+
+                                color =
+                                    SecondaryTextColor,
+
+                                fontSize =
+                                    13.sp
+                            )
+
+
+                            Spacer(
+                                modifier =
+                                    Modifier.height(
+                                        4.dp
+                                    )
+                            )
+
+
+                            Text(
+                                text =
+                                    "Скорость очереди: ${formatForecastSpeed(forecastEffectiveSpeed!!)}",
+
+                                color =
+                                    SecondaryTextColor,
+
+                                fontSize =
+                                    13.sp
+                            )
+
+
+                            Spacer(
+                                modifier =
+                                    Modifier.height(
+                                        4.dp
+                                    )
+                            )
+
+
+                            Text(
+                                text =
+                                    "Обновлено: $forecastUpdatedText",
+
+                                color =
+                                    SecondaryTextColor,
+
+                                fontSize =
+                                    12.sp
+                            )
+
+                        } else {
+
+                            Text(
+                                text =
+                                    "Недостаточно данных для надёжного прогноза",
+
+                                color =
+                                    SecondaryTextColor,
+
+                                fontSize =
+                                    14.sp,
+
+                                fontWeight =
+                                    FontWeight.Medium
+                            )
+                        }
+
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(
+                                    8.dp
+                                )
+                        )
+
+
+                        Text(
+                            text =
+                                "Экспериментальный прогноз",
+
+                            color =
+                                YellowColor,
+
+                            fontSize =
+                                11.sp,
+
+                            fontWeight =
+                                FontWeight.SemiBold
                         )
                     }
                 }
