@@ -39,18 +39,6 @@ jobs:
       - name: Verify shipped fixes are materialized
         run: python3 tools/verify_materialized_fixes.py
 
-      - name: Apply vehicle type queue count fix
-        run: python3 tools/apply_queue_type_count_fix.py
-
-      - name: Apply swipe and back navigation fix
-        run: python3 tools/apply_swipe_navigation_fix.py
-
-      - name: Apply progress-to-call fix
-        run: python3 tools/apply_call_progress_fix.py
-
-      - name: Apply queue movement information
-        run: python3 tools/apply_queue_movement_info.py
-
       - name: Build debug APK
         run: gradle assembleDebug
 
