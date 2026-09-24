@@ -1,0 +1,153 @@
+{
+  "algorithm_version": "v1.1",
+  "source_commit": "1776b5f9948dd2dc9669429b6de999d3449fd904",
+  "unique_events": 272000,
+  "duplicate_rows": 1000,
+  "queue_samples": 11945,
+  "event_time_start": "2026-09-01T17:11:58.124000Z",
+  "event_time_end": "2026-09-04T13:59:29.609000Z",
+  "completed_sessions": 2311,
+  "excluded_uncertain_calls": 1388,
+  "observation_gaps": 772,
+  "independent_movement_batches": 2124,
+  "hourly_blocks": 180,
+  "candidate_predictions": 7795,
+  "available_predictions": 4706,
+  "holdout_start": "2026-09-03T15:03:39.114000Z",
+  "overall": {
+    "predictions": 4706,
+    "median_absolute_error_minutes": 30.401585416666663,
+    "mae_minutes": 125.19278993110268,
+    "median_signed_error_minutes": -10.549529761904761,
+    "p80_absolute_error_minutes": 108.62769999999999,
+    "interval_coverage": 0.7167445813854654
+  },
+  "chronological_holdout": {
+    "predictions": 2034,
+    "median_absolute_error_minutes": 27.264856867720994,
+    "mae_minutes": 65.82595872889748,
+    "median_signed_error_minutes": -5.880206110927688,
+    "p80_absolute_error_minutes": 91.79632764729746,
+    "interval_coverage": 0.7704031465093412
+  },
+  "holdout_by_checkpoint_type": [
+    {
+      "checkpoint_id": "3b797d4d-706a-440f-a1a4-826c191e1e36",
+      "checkpoint_name": "Брузги",
+      "vehicle_type": "CAR",
+      "predictions": 36,
+      "median_absolute_error_minutes": 6.060711421911422,
+      "mae_minutes": 10.327997770483119,
+      "median_signed_error_minutes": -1.0017333333333334,
+      "p80_absolute_error_minutes": 14.524910000000006,
+      "interval_coverage": 0.7777777777777778
+    },
+    {
+      "checkpoint_id": "53d94097-2b34-11ec-8467-ac1f6bf889c0",
+      "checkpoint_name": "Бенякони",
+      "vehicle_type": "CAR",
+      "predictions": 20,
+      "median_absolute_error_minutes": 3.7830398809523818,
+      "mae_minutes": 5.976757715922298,
+      "median_signed_error_minutes": -0.999425,
+      "p80_absolute_error_minutes": 8.326402222222221,
+      "interval_coverage": 0.6
+    },
+    {
+      "checkpoint_id": "53d94097-2b34-11ec-8467-ac1f6bf889c0",
+      "checkpoint_name": "Бенякони",
+      "vehicle_type": "TRUCK",
+      "predictions": 21,
+      "median_absolute_error_minutes": 27.316913894733375,
+      "mae_minutes": 48.43221155229208,
+      "median_signed_error_minutes": 23.3873588507266,
+      "p80_absolute_error_minutes": 58.58017230428845,
+      "interval_coverage": 0.9523809523809523
+    },
+    {
+      "checkpoint_id": "7e46a2d1-ab2f-11ec-bafb-ac1f6bf889c1",
+      "checkpoint_name": "Берестовица",
+      "vehicle_type": "CAR",
+      "predictions": 12,
+      "median_absolute_error_minutes": 0.9998666666666667,
+      "mae_minutes": 3.6272513888888893,
+      "median_signed_error_minutes": -0.9989416666666666,
+      "p80_absolute_error_minutes": 1.1179599999999998,
+      "interval_coverage": 0.08333333333333333
+    },
+    {
+      "checkpoint_id": "7e46a2d1-ab2f-11ec-bafb-ac1f6bf889c1",
+      "checkpoint_name": "Берестовица",
+      "vehicle_type": "TRUCK",
+      "predictions": 58,
+      "median_absolute_error_minutes": 25.265810282512042,
+      "mae_minutes": 71.09741447880133,
+      "median_signed_error_minutes": 12.720978214916954,
+      "p80_absolute_error_minutes": 105.2263985257993,
+      "interval_coverage": 0.9827586206896551
+    },
+    {
+      "checkpoint_id": "98b5be92-d3a5-4ba2-9106-76eb4eb3df49",
+      "checkpoint_name": "Козловичи",
+      "vehicle_type": "TRUCK",
+      "predictions": 859,
+      "median_absolute_error_minutes": 17.386034200258315,
+      "mae_minutes": 40.119184443874836,
+      "median_signed_error_minutes": 0.6581709258828177,
+      "p80_absolute_error_minutes": 59.179002267949244,
+      "interval_coverage": 0.9231664726426076
+    },
+    {
+      "checkpoint_id": "a9173a85-3fc0-424c-84f0-defa632481e4",
+      "checkpoint_name": "Брест",
+      "vehicle_type": "BUS",
+      "predictions": 4,
+      "median_absolute_error_minutes": 143.6789798281834,
+      "mae_minutes": 188.70505481220678,
+      "median_signed_error_minutes": -143.6789798281834,
+      "p80_absolute_error_minutes": 255.90814717031756,
+      "interval_coverage": 0.25
+    },
+    {
+      "checkpoint_id": "a9173a85-3fc0-424c-84f0-defa632481e4",
+      "checkpoint_name": "Брест",
+      "vehicle_type": "CAR",
+      "predictions": 745,
+      "median_absolute_error_minutes": 58.34622769375002,
+      "mae_minutes": 103.29656073218315,
+      "median_signed_error_minutes": -37.44609666666666,
+      "p80_absolute_error_minutes": 133.44307711288002,
+      "interval_coverage": 0.6013422818791946
+    },
+    {
+      "checkpoint_id": "b60677d4-8a00-4f93-a781-e129e1692a03",
+      "checkpoint_name": "Каменный Лог",
+      "vehicle_type": "CAR",
+      "predictions": 243,
+      "median_absolute_error_minutes": 27.96790760723957,
+      "mae_minutes": 53.01864349143203,
+      "median_signed_error_minutes": -9.83457222222222,
+      "p80_absolute_error_minutes": 108.86801579415446,
+      "interval_coverage": 0.7736625514403292
+    },
+    {
+      "checkpoint_id": "b60677d4-8a00-4f93-a781-e129e1692a03",
+      "checkpoint_name": "Каменный Лог",
+      "vehicle_type": "TRUCK",
+      "predictions": 23,
+      "median_absolute_error_minutes": 101.74269044580285,
+      "mae_minutes": 136.72285337918518,
+      "median_signed_error_minutes": 19.73599959271087,
+      "p80_absolute_error_minutes": 222.15711105696658,
+      "interval_coverage": 0.8260869565217391
+    }
+  ],
+  "baseline_entries": 7,
+  "limitations": [
+    "Only September 1-4 event data has been exported, despite September 24 upload filenames.",
+    "Backtest estimates call time; position 1 is only front-of-queue, not confirmation.",
+    "Intervals are calibrated only on calls preceding each prediction; sparse cells use a provisional interval.",
+    "Type-specific event replay uses the positive median movement; Android additionally rejects unsupported isolated moves.",
+    "Single archive and short observation period; field validation is required."
+  ]
+}

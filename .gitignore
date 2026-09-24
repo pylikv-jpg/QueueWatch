@@ -1,0 +1,7 @@
+.gradle/
+.kotlin/
+local.properties
+**/build/
+tools/queuewatch-debug.keystore
+analysis/forecast_v1/output/*.csv
+**/__pycache__/

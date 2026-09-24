@@ -175,4 +175,21 @@ class ForecastEngineV1Test {
         assertTrue(result.lowMinutes <= result.etaMinutes)
         assertTrue(result.highMinutes >= result.etaMinutes)
     }
+
+    @Test fun invalidPositionsAndFutureSpeedsAreNotForecasts() {
+        assertTrue(ForecastEngineV1.estimate(ForecastInput(0, 5, null, null, 1000)) is ForecastResult.Unavailable)
+        assertTrue(ForecastEngineV1.estimate(ForecastInput(5, 5, null, SpeedEstimate(20.0, 3, 2000), 1000)) is ForecastResult.Unavailable)
+    }
+    @Test fun nonFiniteOrUnobservedSpeedIsNotAValidSource() {
+        for (rate in listOf(Double.NaN, Double.POSITIVE_INFINITY, -20.0)) {
+            assertTrue(ForecastEngineV1.estimate(ForecastInput(20, 30, null, SpeedEstimate(rate, 3, 1000), 1000)) is ForecastResult.Unavailable)
+        }
+        assertTrue(ForecastEngineV1.estimate(ForecastInput(20, 30, null, SpeedEstimate(20.0, 0, 1000), 1000)) is ForecastResult.Unavailable)
+    }
+    @Test fun oldArchiveCannotGiveHighConfidence() {
+        val now = 20 * 86_400_000L
+        val result = ForecastEngineV1.estimate(ForecastInput(21, 30,
+            HistoricalEstimate(20.0, 100, 20.0, 40.0, 1L), SpeedEstimate(20.0, 6, now), now)) as ForecastResult.Available
+        assertEquals(ForecastConfidence.LOW, result.confidence)
+    }
 }

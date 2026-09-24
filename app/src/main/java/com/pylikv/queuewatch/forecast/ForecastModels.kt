@@ -16,7 +16,8 @@ data class HistoricalEstimate(
     val positionsPerHour: Double,
     val sampleCount: Int,
     val absoluteErrorP50Minutes: Double,
-    val absoluteErrorP80Minutes: Double
+    val absoluteErrorP80Minutes: Double,
+    val dataCutoffMillis: Long = 0L
 )
 
 data class ForecastInput(

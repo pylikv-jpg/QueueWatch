@@ -47,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import com.pylikv.queuewatch.forecast.ForecastCard
+import com.pylikv.queuewatch.forecast.ForecastPrivacyNote
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -348,13 +350,18 @@ private fun SetupScreen(
         ) {
 
 
+            if (LocalContext.current.resources.getBoolean(R.bool.forecast_enabled)) {
+                ForecastPrivacyNote()
+                Spacer(Modifier.height(12.dp))
+            }
+
             /* ------------------------------------------------
                ЗАГОЛОВОК
                ------------------------------------------------ */
 
             Text(
                 text =
-                    "QueueWatch",
+                    LocalContext.current.getString(R.string.app_name),
 
                 color =
                     MainTextColor,
@@ -1951,6 +1958,7 @@ private fun TrackingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .then(if (context.resources.getBoolean(R.bool.forecast_enabled)) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                 .padding(
                     horizontal = 20.dp,
                     vertical = 20.dp
@@ -1966,7 +1974,7 @@ private fun TrackingScreen(
 
             Text(
                 text =
-                    "QueueWatch",
+                    context.getString(R.string.app_name),
 
                 color =
                     SecondaryTextColor,
@@ -2168,6 +2176,11 @@ private fun TrackingScreen(
                     )
             )
 
+
+            if (context.resources.getBoolean(R.bool.forecast_enabled)) {
+                ForecastCard(carNumber, checkpointName, vehicleState)
+                Spacer(Modifier.height(14.dp))
+            }
 
             /* ------------------------------------------------
                ШКАЛА ДО ВЫЗОВА

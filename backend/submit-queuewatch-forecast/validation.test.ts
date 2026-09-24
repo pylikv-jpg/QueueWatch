@@ -1,0 +1,10 @@
+import {validate} from './validation.ts';
+import assert from 'node:assert/strict';
+const now=Date.now(), at=new Date(now).toISOString();
+const event={event_id:'5eb0beac-5e3b-4e67-9061-d2d2223dfd84',install_id:'083b42c1-df83-4d6f-a445-a143fd090700',forecast_session_id:'7e12086b-8fe0-45dc-b30e-9cbd27974d07',event_type:'prediction',algorithm_version:'v1.1',checkpoint_id:'98b5be92-d3a5-4ba2-9106-76eb4eb3df49',vehicle_type:'TRUCK',started_at:at,observed_at:at,current_position:31,queue_count_same_type:60,historical_speed:null,live_speed:20,effective_speed:20,predicted_minutes:90,predicted_low_minutes:45,predicted_high_minutes:135,confidence:'LOW',live_sample_count:2,historical_sample_count:0,data_gap:false,stale_live_data:false};
+assert.equal(validate(event,now),null);
+for(const extra of [{plate:'TEST'}, {metadata:{regnum:'TEST'}}, {install_id:'device-123'}, {predicted_minutes:NaN}, {effective_speed:Infinity}, {predicted_high_minutes:20}, {observed_at:new Date(now+600000).toISOString()}, {vehicle_type:'ALL'}, {historical_speed:-1}]) assert.notEqual(validate({...event,...extra},now),null);
+const {observed_at,current_position,queue_count_same_type,historical_speed,live_speed,effective_speed,predicted_minutes,predicted_low_minutes,predicted_high_minutes,confidence,live_sample_count,historical_sample_count,data_gap,stale_live_data,...base}=event;
+assert.equal(validate({...base,event_type:'actual_call',called_at:at,last_in_queue_at:at},now),null);
+assert.notEqual(validate({...base,event_type:'actual_call',called_at:at,last_in_queue_at:new Date(now+1000).toISOString()},now),null);
+console.log('12 ingestion validation cases passed');

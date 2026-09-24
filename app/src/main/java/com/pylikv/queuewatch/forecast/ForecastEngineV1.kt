@@ -1,153 +1,54 @@
 package com.pylikv.queuewatch.forecast
 
+import kotlin.math.abs
+import kotlin.math.max
+
+/** Independent of tracking state and alerts. A forecast never establishes a call. */
 object ForecastEngineV1 {
-
-    private const val LIVE_MAX_AGE_MS =
-        60 * 60 * 1000L
-
-    private const val MAX_LIVE_WEIGHT =
-        0.55
-
-    private const val MIN_RATE =
-        0.25
-
-    private const val MAX_RATE =
-        200.0
-
-    fun estimate(
-        input: ForecastInput
-    ): ForecastResult {
-
-        val remaining =
-            (input.currentPosition - 1)
-                .coerceAtLeast(0)
-
-        if (remaining == 0) {
-
-            return ForecastResult.Available(
-                etaMinutes = 0.0,
-                lowMinutes = 0.0,
-                highMinutes = 0.0,
-                confidence =
-                    ForecastConfidence.HIGH,
-                effectivePositionsPerHour =
-                    input.historical
-                        ?.positionsPerHour
-                        ?: input.live
-                            ?.positionsPerHour
-                        ?: 0.0
-            )
+    const val VERSION = "v1.1"
+    fun estimate(input: ForecastInput): ForecastResult {
+        if (input.currentPosition <= 0) return ForecastResult.Unavailable("invalid_position")
+        val history = input.historical?.takeIf {
+            validRate(it.positionsPerHour) && it.sampleCount >= 10 &&
+                it.absoluteErrorP80Minutes.isFinite() && it.absoluteErrorP80Minutes >= 0 &&
+                it.absoluteErrorP50Minutes.isFinite() && it.absoluteErrorP50Minutes >= 0
         }
-
-        val historicalRate =
-            input.historical
-                ?.positionsPerHour
-                ?.takeIf {
-                    it in
-                        MIN_RATE..MAX_RATE
-                }
-
-        val liveFresh =
-            input.live
-                ?.takeIf {
-                    it.positionsPerHour in
-                        MIN_RATE..MAX_RATE &&
-                        input.nowMillis -
-                        it.newestSampleAtMillis <=
-                        LIVE_MAX_AGE_MS
-                }
-
-        if (
-            historicalRate == null &&
-            liveFresh == null
-        ) {
-
-            return ForecastResult.Unavailable(
-                reason =
-                    "insufficient_speed_data"
-            )
+        val live = input.live?.takeIf {
+            validRate(it.positionsPerHour) && it.sampleCount > 0 &&
+                input.nowMillis - it.newestSampleAtMillis in 0..3_600_000L
         }
-
-        val liveWeight =
-            when {
-
-                liveFresh == null ->
-                    0.0
-
-                historicalRate == null ->
-                    1.0
-
-                liveFresh.sampleCount < 3 ->
-                    0.15
-
-                liveFresh.sampleCount < 6 ->
-                    0.30
-
-                else ->
-                    MAX_LIVE_WEIGHT
-            }
-
-        val effective =
-            when {
-
-                historicalRate == null ->
-                    liveFresh!!
-                        .positionsPerHour
-
-                liveFresh == null ->
-                    historicalRate
-
-                else ->
-                    historicalRate *
-                        (1.0 - liveWeight) +
-                        liveFresh.positionsPerHour *
-                        liveWeight
-            }
-
-        val eta =
-            remaining *
-                60.0 /
-                effective
-
-        val p80 =
-            input.historical
-                ?.absoluteErrorP80Minutes
-                ?: (eta * 0.50)
-                    .coerceAtLeast(30.0)
-
-        val low =
-            (eta - p80)
-                .coerceAtLeast(0.0)
-
-        val high =
-            eta + p80
-
-        val confidence =
-            when {
-
-                input.historical != null &&
-                    input.historical
-                        .sampleCount >= 50 &&
-                    liveFresh != null &&
-                    liveFresh.sampleCount >= 6 ->
-                    ForecastConfidence.HIGH
-
-                input.historical != null &&
-                    input.historical
-                        .sampleCount >= 15 ->
-                    ForecastConfidence.MEDIUM
-
-                else ->
-                    ForecastConfidence.LOW
-            }
-
-        return ForecastResult.Available(
-            etaMinutes = eta,
-            lowMinutes = low,
-            highMinutes = high,
-            confidence = confidence,
-            effectivePositionsPerHour =
-                effective
-        )
+        if (input.currentPosition == 1) return ForecastResult.Available(
+            0.0, 0.0, 0.0, ForecastConfidence.LOW, 0.0, VERSION
+        ) // At the front, not confirmation of being called.
+        if (history == null && live == null) return ForecastResult.Unavailable("insufficient_speed_data")
+        val weight = when {
+            live == null -> 0.0
+            history == null -> 1.0
+            live.sampleCount < 3 -> 0.15
+            live.sampleCount < 6 -> 0.30
+            else -> 0.55
+        }
+        val speed = when {
+            history == null -> live!!.positionsPerHour
+            live == null -> history.positionsPerHour
+            else -> history.positionsPerHour * (1 - weight) + live.positionsPerHour * weight
+        }
+        val eta = (input.currentPosition - 1) * 60.0 / speed
+        val calibrated = history != null && history.absoluteErrorP80Minutes > 0
+        val disagreement = history != null && live != null &&
+            abs(history.positionsPerHour - live.positionsPerHour) / history.positionsPerHour > 0.5
+        val confidence = when {
+            !calibrated || disagreement || (history != null && history.dataCutoffMillis > 0 && input.nowMillis - history.dataCutoffMillis > 7 * 86_400_000L) -> ForecastConfidence.LOW
+            history!!.sampleCount >= 50 && live != null && live.sampleCount >= 6 -> ForecastConfidence.HIGH
+            history.sampleCount >= 15 -> ForecastConfidence.MEDIUM
+            else -> ForecastConfidence.LOW
+        }
+        // An uncalibrated interval is explicitly marked as provisional by the UI.
+        val radius = max(history?.absoluteErrorP80Minutes ?: 0.0,
+            if (confidence == ForecastConfidence.LOW) max(30.0, eta * 0.5) else 10.0)
+        return ForecastResult.Available(eta, max(0.0, eta - radius), eta + radius,
+            confidence, speed, VERSION)
     }
+
+    private fun validRate(rate: Double) = rate.isFinite() && rate in 0.25..200.0
 }

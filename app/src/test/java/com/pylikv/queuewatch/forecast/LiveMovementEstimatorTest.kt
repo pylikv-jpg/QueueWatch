@@ -1,10 +1,49 @@
 package com.pylikv.queuewatch.forecast
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.*
 import org.junit.Test
 
 class LiveMovementEstimatorTest {
+    @Test fun batchCountsOnceAndArrivalsDoNotChangeRate() {
+        val estimator = LiveMovementEstimator()
+        estimator.observePositions(0, mapOf("A" to 120, "B" to 121, "C" to 122))
+        estimator.observePositions(600_000, mapOf("A" to 110, "B" to 111, "C" to 112, "NEW" to 200))
+        val result = estimator.estimate(600_000)!!
+        assertEquals(60.0, result.positionsPerHour, 0.001)
+        assertEquals(1, result.sampleCount)
+    }
+    @Test fun waitingTimeReducesRateInsteadOfBeingDiscarded() {
+        val e = LiveMovementEstimator()
+        e.observePositions(0, mapOf("A" to 100))
+        for (i in 1..10) e.observePositions(i * 60_000L, mapOf("A" to if (i < 10) 100 else 90))
+        assertEquals(60.0, e.estimate(600_000)!!.positionsPerHour, 0.001)
+        for (i in 11..20) e.observePositions(i * 60_000L, mapOf("A" to 90))
+        assertEquals(30.0, e.estimate(1_200_000)!!.positionsPerHour, 0.001)
+    }
+    @Test fun gapsAndBackwardsMovementDoNotBecomeThroughput() {
+        val e = LiveMovementEstimator()
+        e.observePositions(0, mapOf("A" to 20))
+        e.observePositions(600_000, mapOf("A" to 22))
+        assertNull(e.estimate(600_000))
+        e.observePositions(3_600_000, mapOf("A" to 1))
+        assertNull(e.estimate(3_600_000))
+        assertTrue(e.dataGap)
+    }
+    @Test fun duplicateTimestampAndStaleDataCannotCreateSpeed() {
+        val e = LiveMovementEstimator()
+        e.observePositions(0, mapOf("A" to 20))
+        e.observePositions(0, mapOf("A" to 10))
+        assertNull(e.estimate(0))
+        e.observePositions(600_000, mapOf("A" to 10))
+        assertNull(e.estimate(900_000))
+    }
+    @Test fun stationaryQueueIsExplicit() {
+        val e = LiveMovementEstimator()
+        for (i in 0..30) e.observePositions(i * 60_000L, mapOf("A" to 20))
+        assertTrue(e.stationary(1_800_000))
+        assertNull(e.estimate(1_800_000))
+    }
+
 
     @Test
     fun massRenumberingCountsAsOneBatchMovement() {
@@ -139,4 +178,5 @@ class LiveMovementEstimatorTest {
             0.01
         )
     }
+
 }

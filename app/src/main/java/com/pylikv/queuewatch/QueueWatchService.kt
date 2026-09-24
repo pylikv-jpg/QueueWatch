@@ -1,6 +1,9 @@
 package com.pylikv.queuewatch
 
 import android.app.Notification
+import com.pylikv.queuewatch.forecast.ForecastCoordinator
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -84,6 +87,8 @@ class QueueWatchService : Service() {
     private val serviceJob = SupervisorJob()
     private val scope = CoroutineScope(serviceJob + Dispatchers.IO)
 
+    private var runningSession: TrackingSession? = null
+    private var forecastCoordinator: ForecastCoordinator? = null
     private var monitoringJob: Job? = null
     private var alertNotificationJob: Job? = null
     private var alertManager: QueueAlertManager? = null
@@ -118,6 +123,9 @@ class QueueWatchService : Service() {
         }
 
         alertManager = QueueAlertManager(applicationContext)
+        if (resources.getBoolean(R.bool.forecast_enabled)) {
+            forecastCoordinator = runCatching { ForecastCoordinator(applicationContext) }.getOrNull()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -231,6 +239,8 @@ class QueueWatchService : Service() {
     }
 
     private fun startMonitoring(session: TrackingSession) {
+        if (runningSession == session && monitoringJob?.isActive == true) return
+        runningSession = session
         monitoringJob?.cancel()
         monitoringJob = scope.launch {
             monitor(session)
@@ -267,6 +277,7 @@ class QueueWatchService : Service() {
         while (preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {
             try {
                 val result = api.getMonitoring(checkpointId)
+                currentCoroutineContext().ensureActive()
 
                 result.fold(
                     onSuccess = { json ->
@@ -388,8 +399,13 @@ class QueueWatchService : Service() {
                                 }
                             }
                         }
+                        // Forecast and telemetry are isolated from tracking and alerts.
+                        runCatching {
+                            forecastCoordinator?.observe(session.carNumber, checkpointId, session.checkpoint, vehicles, vehicle, System.currentTimeMillis())
+                        }.onFailure { forecastCoordinator?.unavailable("Прогноз временно недоступен") }
                     },
                     onFailure = {
+                        forecastCoordinator?.unavailable("Нет свежих данных. Повторяем запрос…")
                         saveMessage("Ошибка получения данных. Повторяем попытку…")
                     }
                 )
@@ -489,6 +505,7 @@ class QueueWatchService : Service() {
     }
 
     private fun stopTrackingByUser() {
+        runCatching { forecastCoordinator?.stop() }
         // Only an explicit user stop clears the durable session. Android
         // destroying the service must never do this.
         preferences.edit()
@@ -674,6 +691,7 @@ class QueueWatchService : Service() {
     }
 
     override fun onDestroy() {
+        forecastCoordinator?.close()
         monitoringJob?.cancel()
         alertNotificationJob?.cancel()
         alertManager?.release()

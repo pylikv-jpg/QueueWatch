@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "algorithm_version": "v1.1",
+  "generated_at": "2026-09-24T19:57:06.889642+00:00",
+  "data_cutoff": "2026-09-04T13:59:29.609000Z",
+  "source": {
+    "repository": "pylikv-jpg/QueueLoggerData",
+    "commit": "1776b5f9948dd2dc9669429b6de999d3449fd904",
+    "record_timestamp_based": true
+  },
+  "entries": [
+    {
+      "checkpoint_id": "53d94097-2b34-11ec-8467-ac1f6bf889c0",
+      "vehicle_type": "CAR",
+      "hour_bucket_start": -1,
+      "hour_bucket_size": 3,
+      "positions_per_hour": 3.1676867791312797,
+      "sample_count": 18,
+      "absolute_error_p50_minutes": 25.58611428571428,
+      "absolute_error_p80_minutes": 76.70053761904764,
+      "calibration_samples": 248
+    },
+    {
+      "checkpoint_id": "53d94097-2b34-11ec-8467-ac1f6bf889c0",
+      "vehicle_type": "TRUCK",
+      "hour_bucket_start": -1,
+      "hour_bucket_size": 3,
+      "positions_per_hour": 1.5331311774955374,
+      "sample_count": 18,
+      "absolute_error_p50_minutes": 132.72319999034514,
+      "absolute_error_p80_minutes": 677.9360144444449,
+      "calibration_samples": 52
+    },
+    {
+      "checkpoint_id": "7e46a2d1-ab2f-11ec-bafb-ac1f6bf889c1",
+      "vehicle_type": "TRUCK",
+      "hour_bucket_start": -1,
+      "hour_bucket_size": 3,
+      "positions_per_hour": 3.0539012759166884,
+      "sample_count": 18,
+      "absolute_error_p50_minutes": 122.23312777777767,
+      "absolute_error_p80_minutes": 381.3389166666667,
+      "calibration_samples": 167
+    },
+    {
+      "checkpoint_id": "98b5be92-d3a5-4ba2-9106-76eb4eb3df49",
+      "vehicle_type": "TRUCK",
+      "hour_bucket_start": -1,
+      "hour_bucket_size": 3,
+      "positions_per_hour": 23.442946294532597,
+      "sample_count": 18,
+      "absolute_error_p50_minutes": 27.399037003771387,
+      "absolute_error_p80_minutes": 114.22190911111115,
+      "calibration_samples": 1535
+    },
+    {
+      "checkpoint_id": "a9173a85-3fc0-424c-84f0-defa632481e4",
+      "vehicle_type": "CAR",
+      "hour_bucket_start": -1,
+      "hour_bucket_size": 3,
+      "positions_per_hour": 33.876505828901294,
+      "sample_count": 18,
+      "absolute_error_p50_minutes": 39.394288888888894,
+      "absolute_error_p80_minutes": 106.21735920366096,
+      "calibration_samples": 1263
+    },
+    {
+      "checkpoint_id": "b60677d4-8a00-4f93-a781-e129e1692a03",
+      "vehicle_type": "CAR",
+      "hour_bucket_start": -1,
+      "hour_bucket_size": 3,
+      "positions_per_hour": 12.599298030599984,
+      "sample_count": 18,
+      "absolute_error_p50_minutes": 24.04418581536146,
+      "absolute_error_p80_minutes": 89.21651649999998,
+      "calibration_samples": 673
+    },
+    {
+      "checkpoint_id": "b60677d4-8a00-4f93-a781-e129e1692a03",
+      "vehicle_type": "TRUCK",
+      "hour_bucket_start": -1,
+      "hour_bucket_size": 3,
+      "positions_per_hour": 1.029974700932946,
+      "sample_count": 18,
+      "absolute_error_p50_minutes": 266.6922786585831,
+      "absolute_error_p80_minutes": 733.8608583333336,
+      "calibration_samples": 74
+    }
+  ]
+}

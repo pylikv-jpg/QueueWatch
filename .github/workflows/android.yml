@@ -7,6 +7,7 @@ on:
       - main
       - fix/persistent-background-tracking
       - feature/forecast-experiment
+      - feature/forecast-pilot-20260924
 
 env:
   PLAY_KEYSTORE_B64: ${{ secrets.QUEUEWATCH_KEYSTORE_BASE64 }}
@@ -42,8 +43,13 @@ jobs:
       - name: Verify Forecast flavor configuration
         run: python3 tools/verify_forecast_flavors.py
 
-      - name: Run Forecast unit tests
-        run: gradle testForecastDebugUnitTest
+      - name: Check archive replay and ingestion validation
+        run: |
+          python3 -m unittest analysis.forecast_v1.test_backtest -v
+          node backend/submit-queuewatch-forecast/validation.test.ts
+
+      - name: Run stable and Forecast unit tests
+        run: gradle testStableDebugUnitTest testForecastDebugUnitTest
 
       - name: Build stable and Forecast debug APKs
         run: gradle assembleStableDebug assembleForecastDebug
