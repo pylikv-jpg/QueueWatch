@@ -136,6 +136,7 @@ create table public.queuewatch_forecast_sessions (
   vehicle_type text not null check (vehicle_type in ('CAR','TRUCK','BUS','MOTORCYCLE')),
   first_seen_at timestamptz not null,
   actual_called_at timestamptz,
+  actual_call_event_id uuid unique,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -289,7 +290,7 @@ Rules:
 - accepted event types only `prediction`, `actual_call`;
 - accepted vehicle type and confidence enums;
 - finite numeric fields;
-- no field named `regnum`, `registration_number`, `plate`, `mac`, or `device_id`.
+- recursively scan all object keys and reject any key named `regnum`, `registration_number`, `plate`, `mac`, or `device_id`, including nested objects.
 
 Reject forbidden keys with HTTP 400.
 
@@ -317,17 +318,18 @@ Pseudo-code must be implemented exactly with server-side conflict handling:
 - [ ] **Step 4: Implement actual_call update**
 
 Find session by `forecast_session_id` + `install_id`.
-- if found, set `actual_called_at` and `updated_at`;
-- if already set to same or later duplicate event, return success idempotently;
+- if found and `actual_call_event_id` is null, set `actual_called_at`, `actual_call_event_id = event_id`, and `updated_at`;
+- if `actual_call_event_id == event_id`, return success idempotently;
+- if a different actual-call event already closed the session, return 200 with `already_closed=true` without moving the original called timestamp;
 - if session not found, return 409 `unknown_session` so Android retries after pending predictions.
 
 - [ ] **Step 5: Add rate limit**
 
 Limit per `install_id`:
-- maximum 240 prediction events/hour;
-- maximum 20 actual_call requests/hour.
+- maximum 240 accepted prediction events/hour;
+- actual_call is naturally bounded by one closure per forecast session and idempotency; additionally reject obviously abusive repeated closure attempts in the function before database work.
 
-Use server-side count over `received_at`/session update attempts. Return HTTP 429 with retry-after metadata.
+Use server-side prediction counts over `received_at`. Return HTTP 429 with retry-after metadata for prediction flooding.
 
 - [ ] **Step 6: Deploy with JWT verification enabled**
 
