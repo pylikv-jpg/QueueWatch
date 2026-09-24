@@ -111,6 +111,12 @@ class ForecastSessionStore(
         const val KEY_CALLED_AT =
             "forecast_called_at"
 
+        const val KEY_STARTED_AT =
+            "forecast_started_at"
+
+        const val KEY_LAST_IN_QUEUE_AT =
+            "forecast_last_in_queue_at"
+
         private val VISIBLE_KEYS =
             setOf(
                 KEY_ETA_MINUTES,
@@ -127,12 +133,16 @@ class ForecastSessionStore(
                 setOf(
                     KEY_SESSION_ID,
                     KEY_SESSION_CAR_KEY,
-                    KEY_CALLED_AT
+                    KEY_CALLED_AT,
+                    KEY_STARTED_AT,
+                    KEY_LAST_IN_QUEUE_AT
                 )
     }
 
     fun ensureSession(
-        localCarKey: String
+        localCarKey: String,
+        startedAtMillis: Long =
+            System.currentTimeMillis()
     ): String {
         require(
             localCarKey.isNotBlank()
@@ -170,6 +180,12 @@ class ForecastSessionStore(
         storage.write(
             KEY_SESSION_ID,
             sessionId
+        )
+
+        storage.write(
+            KEY_STARTED_AT,
+            startedAtMillis
+                .toString()
         )
 
         return sessionId
@@ -337,6 +353,73 @@ class ForecastSessionStore(
             )
         }
     }
+
+    fun markInQueue(
+        localCarKey: String,
+        observedAtMillis: Long
+    ) {
+        if (
+            storage.read(
+                KEY_SESSION_CAR_KEY
+            ) !=
+            localCarKey
+        ) {
+            return
+        }
+
+        if (
+            storage.read(
+                KEY_SESSION_ID
+            ).isNullOrBlank()
+        ) {
+            return
+        }
+
+        storage.write(
+            KEY_LAST_IN_QUEUE_AT,
+            observedAtMillis
+                .toString()
+        )
+    }
+
+
+    fun startedAtMillis(
+        localCarKey: String
+    ): Long? {
+        if (
+            storage.read(
+                KEY_SESSION_CAR_KEY
+            ) !=
+            localCarKey
+        ) {
+            return null
+        }
+
+        return storage.read(
+            KEY_STARTED_AT
+        )
+            ?.toLongOrNull()
+    }
+
+
+    fun lastInQueueAtMillis(
+        localCarKey: String
+    ): Long? {
+        if (
+            storage.read(
+                KEY_SESSION_CAR_KEY
+            ) !=
+            localCarKey
+        ) {
+            return null
+        }
+
+        return storage.read(
+            KEY_LAST_IN_QUEUE_AT
+        )
+            ?.toLongOrNull()
+    }
+
 
     fun markCalled(
         localCarKey: String,
