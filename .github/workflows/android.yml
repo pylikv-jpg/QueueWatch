@@ -39,6 +39,9 @@ jobs:
       - name: Verify shipped fixes are materialized
         run: python3 tools/verify_materialized_fixes.py
 
+      - name: Verify Forecast flavor configuration
+        run: python3 tools/verify_forecast_flavors.py
+
       - name: Build debug APK
         run: gradle assembleDebug
 
