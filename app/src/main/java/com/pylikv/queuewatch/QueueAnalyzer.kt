@@ -1,6 +1,8 @@
 package com.pylikv.queuewatch
 
 import android.content.Context
+import com.pylikv.queuewatch.forecast.LiveMovementEstimator
+import com.pylikv.queuewatch.forecast.SpeedEstimate
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -154,6 +156,17 @@ class QueueAnalyzer(
         mutableMapOf<
             VehicleType,
             CurrentQueueSpeed
+        >()
+
+
+    /**
+     * Batch-aware live queue movement estimates used by Forecast V1.
+     * Kept separately per vehicle type so one queue cannot contaminate another.
+     */
+    private val liveMovementEstimators =
+        mutableMapOf<
+            VehicleType,
+            LiveMovementEstimator
         >()
 
 
@@ -468,6 +481,45 @@ class QueueAnalyzer(
                         vehicle.vehicleType
                     ] ?: 0
                 ) + 1
+        }
+
+
+        /*
+         * Forecast V1 measures one independent queue movement per snapshot
+         * transition. Only live vehicles of the same transport type are fed
+         * into a given estimator.
+         */
+        for (
+            vehicleType
+            in VehicleType.values()
+        ) {
+            val positions =
+                vehicles
+                    .asSequence()
+                    .filter {
+                        it.vehicleType == vehicleType &&
+                            determineState(it) == VehicleState.IN_QUEUE &&
+                            it.position != null &&
+                            it.regnum.isNotBlank()
+                    }
+                    .associate {
+                        normalizeRegnum(it.regnum) to
+                            it.position!!
+                    }
+
+            liveMovementEstimators
+                .getOrPut(
+                    vehicleType
+                ) {
+                    LiveMovementEstimator()
+                }
+                .observePositions(
+                    timestampMillis =
+                        timestampMillis,
+
+                    positions =
+                        positions
+                )
         }
 
 
@@ -1331,6 +1383,25 @@ class QueueAnalyzer(
                 timestampMillis =
                     timestampMillis
             )
+    }
+
+
+    /**
+     * Batch-aware live speed for Forecast V1.
+     *
+     * Returns null when there are no valid movement batches in the last hour.
+     */
+    fun getLiveSpeed(
+        vehicleType: VehicleType,
+        nowMillis: Long =
+            System.currentTimeMillis()
+    ): SpeedEstimate? {
+
+        return liveMovementEstimators[
+            vehicleType
+        ]?.estimate(
+            nowMillis
+        )
     }
 
 
@@ -2317,6 +2388,8 @@ class QueueAnalyzer(
         previousObservationTime.clear()
 
         currentSpeeds.clear()
+
+        liveMovementEstimators.clear()
 
         processedCallEvents.clear()
     }
