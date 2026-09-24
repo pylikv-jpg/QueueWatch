@@ -264,7 +264,7 @@ class QueueWatchService : Service() {
             "${session.carNumber} • ${session.checkpoint} • отслеживание активно"
         )
 
-        while (isActive && preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {
+        while (preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {
             try {
                 val result = api.getMonitoring(checkpointId)
 
@@ -275,7 +275,6 @@ class QueueWatchService : Service() {
                             checkpointName = session.checkpoint
                         )
 
-                        saveQueueCount(vehicles.size)
                         saveLastUpdate()
 
                         val vehicle = analyzer.findVehicle(json, session.carNumber)
@@ -292,6 +291,14 @@ class QueueWatchService : Service() {
                             }
                         } else {
                             vehicleWasConfirmed = true
+
+                            // Count only live-queue vehicles of the same type
+                            // as the vehicle currently being tracked.
+                            val sameTypeLiveQueueCount = vehicles.count { candidate ->
+                                candidate.vehicleType == vehicle.vehicleType &&
+                                    analyzer.determineState(candidate) == VehicleState.IN_QUEUE
+                            }
+                            saveQueueCount(sameTypeLiveQueueCount)
 
                             when (analyzer.determineState(vehicle)) {
                                 VehicleState.IN_QUEUE -> {
