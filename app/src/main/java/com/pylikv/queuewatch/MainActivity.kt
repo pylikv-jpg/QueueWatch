@@ -362,7 +362,7 @@ private fun SetupScreen(
 
             Text(
                 text =
-                    if (forecastEnabled) "QueueWatch Forecast" else "QueueWatch",
+                    "QueueWatch",
 
                 color =
                     MainTextColor,
@@ -2111,7 +2111,7 @@ private fun TrackingScreen(
 
             Text(
                 text =
-                    "QueueWatch",
+                    if (forecastEnabled) "QueueWatch Forecast" else "QueueWatch",
 
                 color =
                     SecondaryTextColor,
