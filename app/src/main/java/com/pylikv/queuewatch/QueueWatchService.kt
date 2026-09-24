@@ -10,6 +10,12 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import com.pylikv.queuewatch.forecast.ForecastEngineV1
+import com.pylikv.queuewatch.forecast.ForecastInput
+import com.pylikv.queuewatch.forecast.ForecastResult
+import com.pylikv.queuewatch.forecast.ForecastSessionStore
+import com.pylikv.queuewatch.forecast.HistoricalBaselineRepository
+import com.pylikv.queuewatch.forecast.SharedPreferencesForecastStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,8 +24,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Long-running, user initiated queue monitoring.
@@ -260,6 +268,52 @@ class QueueWatchService : Service() {
             return
         }
 
+        val forecastEnabled =
+            resources.getBoolean(
+                R.bool.forecast_enabled
+            )
+
+        val forecastStore =
+            if (forecastEnabled) {
+                ForecastSessionStore(
+                    SharedPreferencesForecastStorage(
+                        preferences
+                    )
+                )
+            } else {
+                null
+            }
+
+        val historicalBaselineRepository =
+            if (forecastEnabled) {
+                HistoricalBaselineRepository(
+                    applicationContext
+                )
+            } else {
+                null
+            }
+
+        val forecastLocalCarKey =
+            if (forecastEnabled) {
+                buildForecastLocalCarKey(
+                    carNumber =
+                        session.carNumber,
+                    checkpointId =
+                        checkpointId
+                )
+            } else {
+                null
+            }
+
+        if (
+            forecastStore != null &&
+            forecastLocalCarKey != null
+        ) {
+            forecastStore.ensureSession(
+                forecastLocalCarKey
+            )
+        }
+
         updateServiceNotification(
             "${session.carNumber} • ${session.checkpoint} • отслеживание активно"
         )
@@ -306,6 +360,32 @@ class QueueWatchService : Service() {
                                     saveState("IN_QUEUE", currentPosition)
 
                                     if (currentPosition != null) {
+                                        if (
+                                            forecastEnabled &&
+                                            forecastStore != null &&
+                                            historicalBaselineRepository != null &&
+                                            forecastLocalCarKey != null
+                                        ) {
+                                            updateForecastV1(
+                                                analyzer =
+                                                    analyzer,
+                                                vehicle =
+                                                    vehicle,
+                                                checkpointId =
+                                                    checkpointId,
+                                                sameTypeLiveQueueCount =
+                                                    sameTypeLiveQueueCount,
+                                                currentPosition =
+                                                    currentPosition,
+                                                forecastLocalCarKey =
+                                                    forecastLocalCarKey,
+                                                forecastStore =
+                                                    forecastStore,
+                                                historicalBaselineRepository =
+                                                    historicalBaselineRepository
+                                            )
+                                        }
+
                                         if (currentPosition > session.positionThreshold) {
                                             if (positionAlertTriggered) {
                                                 positionAlertTriggered = false
@@ -353,6 +433,19 @@ class QueueWatchService : Service() {
                                 VehicleState.CALLED -> {
                                     saveState("CALLED", null)
                                     saveMessage("Автомобиль вызван в пункт пропуска.")
+
+                                    if (
+                                        forecastEnabled &&
+                                        forecastStore != null &&
+                                        forecastLocalCarKey != null
+                                    ) {
+                                        forecastStore.markCalled(
+                                            localCarKey =
+                                                forecastLocalCarKey,
+                                            calledAtMillis =
+                                                System.currentTimeMillis()
+                                        )
+                                    }
 
                                     val eventId = buildEventId(
                                         session.checkpoint,
@@ -409,6 +502,109 @@ class QueueWatchService : Service() {
             delay(UPDATE_INTERVAL)
         }
     }
+
+    private fun updateForecastV1(
+        analyzer: QueueAnalyzer,
+        vehicle: QueueVehicle,
+        checkpointId: String,
+        sameTypeLiveQueueCount: Int,
+        currentPosition: Int,
+        forecastLocalCarKey: String,
+        forecastStore: ForecastSessionStore,
+        historicalBaselineRepository:
+            HistoricalBaselineRepository
+    ) {
+        val nowMillis =
+            System.currentTimeMillis()
+
+        val live =
+            analyzer.getLiveSpeed(
+                vehicleType =
+                    vehicle.vehicleType,
+                nowMillis =
+                    nowMillis
+            )
+
+        val minskCalendar =
+            Calendar.getInstance(
+                TimeZone.getTimeZone(
+                    "Europe/Minsk"
+                )
+            ).apply {
+                timeInMillis =
+                    nowMillis
+            }
+
+        val historical =
+            historicalBaselineRepository.find(
+                checkpointId =
+                    checkpointId,
+                vehicleType =
+                    vehicle.vehicleType,
+                localHour =
+                    minskCalendar.get(
+                        Calendar.HOUR_OF_DAY
+                    )
+            )
+
+        val forecast =
+            ForecastEngineV1.estimate(
+                ForecastInput(
+                    currentPosition =
+                        currentPosition,
+                    queueCount =
+                        sameTypeLiveQueueCount,
+                    historical =
+                        historical,
+                    live =
+                        live,
+                    nowMillis =
+                        nowMillis
+                )
+            )
+
+        when (
+            forecast
+        ) {
+            is ForecastResult.Available ->
+                forecastStore.saveAvailable(
+                    localCarKey =
+                        forecastLocalCarKey,
+                    result =
+                        forecast,
+                    updatedAtMillis =
+                        nowMillis
+                )
+
+            is ForecastResult.Unavailable ->
+                forecastStore.clearVisible(
+                    forecastLocalCarKey
+                )
+        }
+    }
+
+
+    private fun buildForecastLocalCarKey(
+        carNumber: String,
+        checkpointId: String
+    ): String {
+
+        val normalizedCarNumber =
+            carNumber
+                .uppercase()
+                .replace(
+                    "\\s".toRegex(),
+                    ""
+                )
+                .replace(
+                    "-",
+                    ""
+                )
+                .trim()
+
+        return "$normalizedCarNumber|$checkpointId"
+    }
+
 
     private fun checkpointId(checkpointName: String): String? = when (checkpointName) {
         "Бенякони" -> "53d94097-2b34-11ec-8467-ac1f6bf889c0"
@@ -489,6 +685,12 @@ class QueueWatchService : Service() {
     }
 
     private fun stopTrackingByUser() {
+        ForecastSessionStore(
+            SharedPreferencesForecastStorage(
+                preferences
+            )
+        ).reset()
+
         // Only an explicit user stop clears the durable session. Android
         // destroying the service must never do this.
         preferences.edit()

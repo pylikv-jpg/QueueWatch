@@ -408,6 +408,10 @@ class ForecastSessionStore(
             ?.toLongOrNull()
     }
 
+    fun reset() {
+        clearAll()
+    }
+
     private fun clearAll() {
         storage.remove(
             ALL_KEYS
