@@ -1,0 +1,4 @@
+<resources>
+    <string name="forecast_telemetry_endpoint" translatable="false"></string>
+    <string name="forecast_telemetry_public_key" translatable="false"></string>
+</resources>

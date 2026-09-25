@@ -22,7 +22,7 @@ class ForecastEngineV1Test {
     }
 
     @Test
-    fun positionOneProducesZeroEta() {
+    fun positionOneDoesNotPromiseAnImmediateCallEvenWithHistory() {
         val result = ForecastEngineV1.estimate(
             ForecastInput(
                 currentPosition = 1,
@@ -36,11 +36,19 @@ class ForecastEngineV1Test {
                 live = null,
                 nowMillis = 1_000_000L
             )
-        ) as ForecastResult.Available
+        )
+        assertTrue(result is ForecastResult.Unavailable)
+    }
 
-        assertEquals(0.0, result.etaMinutes, 0.001)
-        assertEquals(0.0, result.lowMinutes, 0.001)
-        assertEquals(0.0, result.highMinutes, 0.001)
+    @Test
+    fun positionOneRemainsUncertainWithNoSourcesOrOnlyLiveMovement() {
+        for (live in listOf(null, SpeedEstimate(20.0, 10, 999_000L))) {
+            val result = ForecastEngineV1.estimate(ForecastInput(
+                currentPosition = 1, queueCount = 100, historical = null,
+                live = live, nowMillis = 1_000_000L
+            ))
+            assertTrue(result is ForecastResult.Unavailable)
+        }
     }
 
     @Test

@@ -17,6 +17,8 @@ class LiveMovementEstimator {
 
         private const val MAX_RATE =
             200.0
+
+        private const val MAX_SNAPSHOT_GAP_MS = 15 * 60_000L
     }
 
     private data class MovementSample(
@@ -26,6 +28,8 @@ class LiveMovementEstimator {
 
     private var previousTimestampMillis: Long? =
         null
+
+    private var lastMovementTimestampMillis: Long? = null
 
     private var previousPositions:
         Map<String, Int> =
@@ -42,6 +46,7 @@ class LiveMovementEstimator {
             previousTimestampMillis
 
         if (previousTimestamp == null) {
+            lastMovementTimestampMillis = timestampMillis
             previousTimestampMillis =
                 timestampMillis
 
@@ -58,6 +63,16 @@ class LiveMovementEstimator {
         val elapsedMillis =
             timestampMillis -
                 previousTimestamp
+
+        if (elapsedMillis > MAX_SNAPSHOT_GAP_MS ||
+            previousPositions.keys.none { it in positions }) {
+            // We cannot place movement inside an unobserved gap or a replaced queue.
+            samples.clear()
+            lastMovementTimestampMillis = timestampMillis
+            previousTimestampMillis = timestampMillis
+            previousPositions = positions.toMap()
+            return
+        }
 
         val positiveDeltas =
             previousPositions
@@ -78,8 +93,12 @@ class LiveMovementEstimator {
                 )
 
             val elapsedHours =
-                elapsedMillis /
+                (timestampMillis - (lastMovementTimestampMillis ?: previousTimestamp)) /
                     3_600_000.0
+
+            // Unchanged polls do not restart this clock: five places over ten
+            // minutes are 30/hour, even when the app polls every twenty seconds.
+            lastMovementTimestampMillis = timestampMillis
 
             val rate =
                 movedPositions /

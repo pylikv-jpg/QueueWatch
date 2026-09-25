@@ -2588,7 +2588,10 @@ private fun TrackingScreen(
                             forecastLowMinutes != null &&
                             forecastHighMinutes != null &&
                             forecastConfidence != null &&
-                            forecastEffectiveSpeed != null
+                            forecastEffectiveSpeed != null &&
+                            forecastUpdatedAtMillis?.let {
+                                System.currentTimeMillis() - it in 0L..120_000L
+                            } == true
                         ) {
 
                             Text(
@@ -2689,7 +2692,8 @@ private fun TrackingScreen(
 
                             Text(
                                 text =
-                                    "Недостаточно данных для надёжного прогноза",
+                                    if (position == 1) "Вы первый в очереди. Время вызова пока неизвестно."
+                                    else "Недостаточно данных для надёжного прогноза",
 
                                 color =
                                     SecondaryTextColor,
@@ -2713,7 +2717,8 @@ private fun TrackingScreen(
 
                         Text(
                             text =
-                                "Экспериментальный прогноз",
+                                "Экспериментальный прогноз. Для проверки точности отправляются " +
+                                    "позиции, прогнозы и время вызова. Номер автомобиля не отправляется.",
 
                             color =
                                 YellowColor,

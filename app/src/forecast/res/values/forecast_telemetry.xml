@@ -1,0 +1,5 @@
+<resources>
+    <string name="forecast_telemetry_endpoint" translatable="false">https://whvdyxjopfwgzgqqvzaj.supabase.co/functions/v1/submit-queuewatch-forecast</string>
+    <!-- Public anon JWT for the existing JWT-verified ingestion endpoint. No database grants. -->
+    <string name="forecast_telemetry_public_key" translatable="false">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodmR5eGpvcGZ3Z3pncXF2emFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNDU3MzksImV4cCI6MjEwNTgyMTczOX0.LaWuG5qKM5e5H_6yRjcQHW7ZH6kgWGU7VLHDCVv-l8g</string>
+</resources>

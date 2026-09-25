@@ -198,7 +198,8 @@ class ForecastSessionStore(
         updatedAtMillis: Long
     ) {
         ensureSession(
-            localCarKey
+            localCarKey,
+            updatedAtMillis
         )
 
         storage.remove(
@@ -448,7 +449,7 @@ class ForecastSessionStore(
 
         storage.write(
             KEY_CALLED_AT,
-            calledAtMillis
+            (calledAtMillis(localCarKey) ?: calledAtMillis)
                 .toString()
         )
     }

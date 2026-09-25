@@ -7,6 +7,24 @@ import org.junit.Test
 
 class ForecastSessionStoreTest {
 
+    @Test
+    fun repeatedCalledSnapshotsPreserveFirstConfirmationTime() {
+        val store = ForecastSessionStore(FakeStorage())
+        store.ensureSession("AA111|checkpoint", 1_000L)
+        store.markInQueue("AA111|checkpoint", 2_000L)
+        store.markCalled("AA111|checkpoint", 3_000L)
+        store.markCalled("AA111|checkpoint", 5_000L)
+        assertEquals(3_000L, store.calledAtMillis("AA111|checkpoint"))
+    }
+
+    @Test
+    fun firstForecastObservationDefinesSessionStartTime() {
+        val store = ForecastSessionStore(FakeStorage())
+        store.saveAvailable("AA111|checkpoint", ForecastResult.Available(
+            10.0, 5.0, 15.0, ForecastConfidence.LOW, 6.0), 60_000L)
+        assertEquals(60_000L, store.startedAtMillis("AA111|checkpoint"))
+    }
+
     private class FakeStorage :
         ForecastStorage {
 

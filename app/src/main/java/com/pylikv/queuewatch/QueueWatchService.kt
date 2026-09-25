@@ -14,9 +14,18 @@ import com.pylikv.queuewatch.forecast.ForecastEngineV1
 import com.pylikv.queuewatch.forecast.ForecastInput
 import com.pylikv.queuewatch.forecast.ForecastResult
 import com.pylikv.queuewatch.forecast.ForecastSessionStore
+import com.pylikv.queuewatch.forecast.ForecastInstallationId
+import com.pylikv.queuewatch.forecast.ForecastTelemetryClient
+import com.pylikv.queuewatch.forecast.ForecastTelemetryHttpTransport
+import com.pylikv.queuewatch.forecast.ForecastTelemetryIdentity
+import com.pylikv.queuewatch.forecast.ForecastTelemetryRecorder
+import com.pylikv.queuewatch.forecast.ForecastTelemetryStore
 import com.pylikv.queuewatch.forecast.HistoricalBaselineRepository
 import com.pylikv.queuewatch.forecast.SharedPreferencesForecastStorage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -98,6 +107,27 @@ class QueueWatchService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
 
     private lateinit var preferences: android.content.SharedPreferences
+
+    private val forecastTelemetryStorage by lazy {
+        SharedPreferencesForecastStorage(
+            getSharedPreferences("queuewatch_forecast_telemetry", Context.MODE_PRIVATE)
+        )
+    }
+    private val forecastTelemetryClient by lazy {
+        if (resources.getBoolean(R.bool.forecast_enabled)) {
+            ForecastTelemetryClient(
+                ForecastTelemetryStore(forecastTelemetryStorage),
+                ForecastTelemetryHttpTransport(
+                    getString(R.string.forecast_telemetry_endpoint),
+                    getString(R.string.forecast_telemetry_public_key)
+                ),
+                onFailure = { android.util.Log.w("ForecastTelemetry", it) }
+            )
+        } else null
+    }
+    private val forecastTelemetryRecorder by lazy {
+        forecastTelemetryClient?.let { ForecastTelemetryRecorder(forecastTelemetryStorage, it) }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -320,7 +350,11 @@ class QueueWatchService : Service() {
 
         while (preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {
             try {
+                currentCoroutineContext().ensureActive()
                 val result = api.getMonitoring(checkpointId)
+                // A cancelled old monitor cannot overwrite a newly selected session
+                // after its blocking HTTP call returns.
+                currentCoroutineContext().ensureActive()
 
                 result.fold(
                     onSuccess = { json ->
@@ -334,6 +368,7 @@ class QueueWatchService : Service() {
                         val vehicle = analyzer.findVehicle(json, session.carNumber)
 
                         if (vehicle == null) {
+                            invalidateForecast(forecastStore, forecastLocalCarKey)
                             if (!vehicleWasConfirmed) {
                                 saveState("", null)
                                 saveMessage("Автомобиль пока не обнаружен.")
@@ -366,7 +401,7 @@ class QueueWatchService : Service() {
                                             historicalBaselineRepository != null &&
                                             forecastLocalCarKey != null
                                         ) {
-                                            updateForecastV1(
+                                            try { updateForecastV1(
                                                 analyzer =
                                                     analyzer,
                                                 vehicle =
@@ -383,7 +418,9 @@ class QueueWatchService : Service() {
                                                     forecastStore,
                                                 historicalBaselineRepository =
                                                     historicalBaselineRepository
-                                            )
+                                            ) } catch (_: Exception) {
+                                                invalidateForecast(forecastStore, forecastLocalCarKey)
+                                            }
                                         }
 
                                         if (currentPosition > session.positionThreshold) {
@@ -427,6 +464,9 @@ class QueueWatchService : Service() {
                                     }
 
                                     previousPosition = currentPosition
+                                    if (currentPosition == null) {
+                                        invalidateForecast(forecastStore, forecastLocalCarKey)
+                                    }
                                     saveMessage("Автомобиль находится в живой очереди.")
                                 }
 
@@ -439,11 +479,22 @@ class QueueWatchService : Service() {
                                         forecastStore != null &&
                                         forecastLocalCarKey != null
                                     ) {
+                                        val calledAt = forecastStore.calledAtMillis(forecastLocalCarKey)
+                                            ?: System.currentTimeMillis()
+                                        // Persist the event before clearing the displayed ETA.
+                                        runCatching {
+                                            val lastSeen = forecastStore.lastInQueueAtMillis(forecastLocalCarKey)
+                                            val identity = telemetryIdentity(forecastStore, forecastLocalCarKey,
+                                                checkpointId, vehicle.vehicleType)
+                                            if (lastSeen != null && identity != null) {
+                                                forecastTelemetryRecorder?.recordActualCall(identity, calledAt, lastSeen)
+                                            }
+                                        }
                                         forecastStore.markCalled(
                                             localCarKey =
                                                 forecastLocalCarKey,
                                             calledAtMillis =
-                                                System.currentTimeMillis()
+                                                calledAt
                                         )
                                     }
 
@@ -473,6 +524,7 @@ class QueueWatchService : Service() {
                                 }
 
                                 VehicleState.UNKNOWN -> {
+                                    invalidateForecast(forecastStore, forecastLocalCarKey)
                                     saveState("UNKNOWN", null)
                                     saveMessage(
                                         "Автомобиль найден, но сервер не дал " +
@@ -483,10 +535,14 @@ class QueueWatchService : Service() {
                         }
                     },
                     onFailure = {
+                        invalidateForecast(forecastStore, forecastLocalCarKey)
                         saveMessage("Ошибка получения данных. Повторяем попытку…")
                     }
                 )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
+                invalidateForecast(forecastStore, forecastLocalCarKey)
                 saveMessage("Временная ошибка. Мониторинг продолжается.")
             }
 
@@ -498,6 +554,14 @@ class QueueWatchService : Service() {
             updateServiceNotification(
                 "${session.carNumber} • ${session.checkpoint} • отслеживание активно"
             )
+
+            if (forecastEnabled) {
+                runCatching { forecastTelemetryClient }.getOrNull()?.let { client ->
+                    scope.launch {
+                        client.flushPending(System.currentTimeMillis()) { isActive }
+                    }
+                }
+            }
 
             delay(UPDATE_INTERVAL)
         }
@@ -516,6 +580,13 @@ class QueueWatchService : Service() {
     ) {
         val nowMillis =
             System.currentTimeMillis()
+
+        // Re-entering the live queue after a completed call is a new visit.
+        if (forecastStore.calledAtMillis(forecastLocalCarKey) != null) forecastStore.reset()
+        forecastStore.ensureSession(forecastLocalCarKey, nowMillis)
+        val previousSeen = forecastStore.lastInQueueAtMillis(forecastLocalCarKey)
+        val dataGap = previousSeen == null || nowMillis - previousSeen !in 0L..120_000L
+        forecastStore.markInQueue(forecastLocalCarKey, nowMillis)
 
         val live =
             analyzer.getLiveSpeed(
@@ -566,7 +637,7 @@ class QueueWatchService : Service() {
         when (
             forecast
         ) {
-            is ForecastResult.Available ->
+            is ForecastResult.Available -> {
                 forecastStore.saveAvailable(
                     localCarKey =
                         forecastLocalCarKey,
@@ -575,6 +646,16 @@ class QueueWatchService : Service() {
                     updatedAtMillis =
                         nowMillis
                 )
+                runCatching {
+                    val identity = telemetryIdentity(forecastStore, forecastLocalCarKey,
+                        checkpointId, vehicle.vehicleType) ?: return@runCatching
+                    forecastTelemetryRecorder?.recordPrediction(
+                        identity, nowMillis, currentPosition, sameTypeLiveQueueCount,
+                        historical, live, forecast, dataGap,
+                        live == null || nowMillis - live.newestSampleAtMillis !in 0L..3_600_000L
+                    )
+                }
+            }
 
             is ForecastResult.Unavailable ->
                 forecastStore.clearVisible(
@@ -583,6 +664,21 @@ class QueueWatchService : Service() {
         }
     }
 
+
+    private fun invalidateForecast(store: ForecastSessionStore?, localKey: String?) {
+        if (store != null && localKey != null) runCatching { store.clearVisible(localKey) }
+    }
+
+    private fun telemetryIdentity(
+        store: ForecastSessionStore, localKey: String, checkpointId: String, vehicleType: VehicleType
+    ): ForecastTelemetryIdentity? {
+        val sessionId = store.currentSessionId(localKey) ?: return null
+        val startedAt = store.startedAtMillis(localKey) ?: return null
+        return ForecastTelemetryIdentity(
+            ForecastInstallationId(forecastTelemetryStorage).getOrCreate(),
+            sessionId, "v1", checkpointId, vehicleType, startedAt
+        )
+    }
 
     private fun buildForecastLocalCarKey(
         carNumber: String,

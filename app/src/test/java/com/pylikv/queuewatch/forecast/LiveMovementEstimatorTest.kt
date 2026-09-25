@@ -7,6 +7,36 @@ import org.junit.Test
 class LiveMovementEstimatorTest {
 
     @Test
+    fun stationaryPollsAreIncludedInElapsedTimeBeforeBatchMoves() {
+        val estimator = LiveMovementEstimator()
+        estimator.observePositions(0L, mapOf("A" to 20, "B" to 21))
+        for (at in 20_000L until 600_000L step 20_000L) {
+            estimator.observePositions(at, mapOf("A" to 20, "B" to 21))
+        }
+        estimator.observePositions(600_000L, mapOf("A" to 15, "B" to 16))
+        assertEquals(30.0, estimator.estimate(600_000L)!!.positionsPerHour, 0.01)
+    }
+
+    @Test
+    fun twentySecondPollingDoesNotTurnOneCarInTenMinutesInto180CarsPerHour() {
+        val estimator = LiveMovementEstimator()
+        estimator.observePositions(0L, mapOf("A" to 20))
+        for (at in 20_000L until 600_000L step 20_000L) {
+            estimator.observePositions(at, mapOf("A" to 20))
+        }
+        estimator.observePositions(600_000L, mapOf("A" to 19))
+        assertEquals(6.0, estimator.estimate(600_000L)!!.positionsPerHour, 0.01)
+    }
+
+    @Test
+    fun anUnobservedLongGapCannotBeCountedAsFreshMovement() {
+        val estimator = LiveMovementEstimator()
+        estimator.observePositions(0L, mapOf("A" to 100))
+        estimator.observePositions(2 * 3_600_000L, mapOf("A" to 10))
+        assertNull(estimator.estimate(2 * 3_600_000L))
+    }
+
+    @Test
     fun massRenumberingCountsAsOneBatchMovement() {
         val estimator = LiveMovementEstimator()
 

@@ -46,6 +46,7 @@ class ForecastTelemetryStore(
         )
     }
 
+    @Synchronized
     fun enqueue(
         event:
             PendingForecastTelemetryEvent
@@ -71,6 +72,7 @@ class ForecastTelemetryStore(
         )
     }
 
+    @Synchronized
     fun all():
         List<PendingForecastTelemetryEvent> =
         readQueue()
@@ -78,6 +80,7 @@ class ForecastTelemetryStore(
                 it.createdAtMillis
             }
 
+    @Synchronized
     fun due(
         nowMillis: Long,
         limit: Int = 20
@@ -95,6 +98,7 @@ class ForecastTelemetryStore(
             )
             .toList()
 
+    @Synchronized
     fun markSuccess(
         eventId: String
     ) {
@@ -110,6 +114,7 @@ class ForecastTelemetryStore(
         )
     }
 
+    @Synchronized
     fun markFailure(
         eventId: String,
         nowMillis: Long

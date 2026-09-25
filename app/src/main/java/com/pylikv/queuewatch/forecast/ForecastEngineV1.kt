@@ -23,19 +23,10 @@ object ForecastEngineV1 {
                 .coerceAtLeast(0)
 
         if (remaining == 0) {
-
-            return ForecastResult.Available(
-                etaMinutes = 0.0,
-                lowMinutes = 0.0,
-                highMinutes = 0.0,
-                confidence =
-                    ForecastConfidence.HIGH,
-                effectivePositionsPerHour =
-                    input.historical
-                        ?.positionsPerHour
-                        ?: input.live
-                            ?.positionsPerHour
-                        ?: 0.0
+            // First in line is still IN_QUEUE. Movement speed cannot tell us
+            // when the checkpoint will actually call this vehicle.
+            return ForecastResult.Unavailable(
+                reason = "front_of_queue_waiting_for_call"
             )
         }
 

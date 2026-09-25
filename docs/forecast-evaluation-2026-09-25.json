@@ -1,0 +1,164 @@
+{
+  "source_commit": "d0b97f62696480645a74c08d38bcd44ac1bb3438",
+  "datasets": {
+    "queue_samples": {
+      "files": 275,
+      "duplicates": 0,
+      "malformed": 0,
+      "id_conflicts": 0,
+      "records": 56635,
+      "min_timestamp": "2026-09-01T17:11:58.124000Z",
+      "max_timestamp": "2026-09-24T21:06:55.791000Z"
+    },
+    "vehicle_events": {
+      "files": 274,
+      "duplicates": 1000,
+      "malformed": 0,
+      "id_conflicts": 0,
+      "records": 273000,
+      "min_timestamp": "2026-09-01T17:11:58.124000Z",
+      "max_timestamp": "2026-09-04T14:35:57.044000Z"
+    },
+    "vehicle_movements": {
+      "files": 273,
+      "duplicates": 0,
+      "malformed": 0,
+      "id_conflicts": 0,
+      "records": 273000,
+      "min_timestamp": "2026-09-01T17:12:57.136000Z",
+      "max_timestamp": "2026-09-04T22:29:50.214000Z"
+    }
+  },
+  "completed_sessions": 1346,
+  "independent_movement_batches": 2089,
+  "untyped_legacy_movements": 3778,
+  "gap_count": 1876,
+  "calibration_policy": "One prediction per session per chronological phase; fit 60%, calibration 20%, final test 20%. No test outcomes in coefficients.",
+  "checkpoints": {
+    "53d94097-2b34-11ec-8467-ac1f6bf889c0": {
+      "first": "2026-09-01T17:11:58.124000Z",
+      "last": "2026-09-24T21:06:54.136000Z",
+      "snapshots": 8074,
+      "gaps": 266,
+      "continuous_fraction": 0.5448756543067553
+    },
+    "7e46a2d1-ab2f-11ec-bafb-ac1f6bf889c1": {
+      "first": "2026-09-01T17:11:58.290000Z",
+      "last": "2026-09-24T21:06:54.445000Z",
+      "snapshots": 8086,
+      "gaps": 265,
+      "continuous_fraction": 0.5447469867347045
+    },
+    "a9173a85-3fc0-424c-84f0-defa632481e4": {
+      "first": "2026-09-01T17:11:58.575000Z",
+      "last": "2026-09-24T21:06:54.855000Z",
+      "snapshots": 8093,
+      "gaps": 266,
+      "continuous_fraction": 0.5431378546308995
+    },
+    "3b797d4d-706a-440f-a1a4-826c191e1e36": {
+      "first": "2026-09-01T17:11:58.719000Z",
+      "last": "2026-09-24T21:06:55.160000Z",
+      "snapshots": 8094,
+      "gaps": 268,
+      "continuous_fraction": 0.5409435742858046
+    },
+    "ffe81c11-00d6-11e8-a967-b0dd44bde851": {
+      "first": "2026-09-01T17:11:58.941000Z",
+      "last": "2026-09-24T21:06:55.359000Z",
+      "snapshots": 8096,
+      "gaps": 269,
+      "continuous_fraction": 0.539640298301878
+    },
+    "b60677d4-8a00-4f93-a781-e129e1692a03": {
+      "first": "2026-09-01T17:11:59.083000Z",
+      "last": "2026-09-24T21:06:55.558000Z",
+      "snapshots": 8098,
+      "gaps": 270,
+      "continuous_fraction": 0.5387046679328209
+    },
+    "98b5be92-d3a5-4ba2-9106-76eb4eb3df49": {
+      "first": "2026-09-01T17:11:59.343000Z",
+      "last": "2026-09-24T21:06:55.791000Z",
+      "snapshots": 8094,
+      "gaps": 272,
+      "continuous_fraction": 0.5365624008742557
+    }
+  },
+  "train_cutoff": "2026-09-03T05:19:02.881000Z",
+  "calibration_cutoff": "2026-09-03T21:35:11.152000Z",
+  "test_metrics": {
+    "hybrid": {
+      "count": 198,
+      "mae_minutes": 72.44476466926588,
+      "median_absolute_error_minutes": 65.71228103078425,
+      "median_bias_minutes": -64.35160767275065,
+      "interval_coverage": 0.6313131313131313
+    },
+    "history_only": {
+      "count": 195,
+      "mae_minutes": 63.64324064992941,
+      "median_absolute_error_minutes": 52.975849999999994,
+      "median_bias_minutes": -52.975849999999994,
+      "interval_coverage": 0.7487179487179487
+    },
+    "live_only": {
+      "count": 131,
+      "mae_minutes": 309.7066798817576,
+      "median_absolute_error_minutes": 81.9994,
+      "median_bias_minutes": -40.49461577733703,
+      "interval_coverage": 0.22137404580152673
+    }
+  },
+  "test_by_checkpoint_type": [
+    {
+      "checkpoint": "3b797d4d-706a-440f-a1a4-826c191e1e36",
+      "vehicle_type": "CAR",
+      "count": 51,
+      "mae_minutes": 59.4870837015431,
+      "median_absolute_error_minutes": 55.94669999999999,
+      "median_bias_minutes": -55.94669999999999,
+      "interval_coverage": 1
+    },
+    {
+      "checkpoint": "53d94097-2b34-11ec-8467-ac1f6bf889c0",
+      "vehicle_type": "CAR",
+      "count": 1,
+      "mae_minutes": 0.7752568742925512,
+      "median_absolute_error_minutes": 0.7752568742925512,
+      "median_bias_minutes": 0.7752568742925512,
+      "interval_coverage": 1
+    },
+    {
+      "checkpoint": "7e46a2d1-ab2f-11ec-bafb-ac1f6bf889c1",
+      "vehicle_type": "CAR",
+      "count": 9,
+      "mae_minutes": 39.32068924930745,
+      "median_absolute_error_minutes": 40.80487346977926,
+      "median_bias_minutes": -40.80487346977926,
+      "interval_coverage": 0
+    },
+    {
+      "checkpoint": "a9173a85-3fc0-424c-84f0-defa632481e4",
+      "vehicle_type": "CAR",
+      "count": 82,
+      "mae_minutes": 89.75142026219415,
+      "median_absolute_error_minutes": 71.49901227436793,
+      "median_bias_minutes": -71.49901227436793,
+      "interval_coverage": 0.24390243902439024
+    },
+    {
+      "checkpoint": "b60677d4-8a00-4f93-a781-e129e1692a03",
+      "vehicle_type": "CAR",
+      "count": 52,
+      "mae_minutes": 58.61060988688399,
+      "median_absolute_error_minutes": 63.071714085213074,
+      "median_bias_minutes": -63.071714085213074,
+      "interval_coverage": 1
+    }
+  ],
+  "candidate_entries": 20,
+  "shipping_entries": 0,
+  "status": "candidates_require_accuracy_review",
+  "note": "Empty entries means use live observations only. Archive upload dates must not be used as event dates."
+}

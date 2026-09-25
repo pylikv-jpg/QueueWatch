@@ -1,12 +1,14 @@
 {
   "schema_version": 1,
   "algorithm_version": "v1",
-  "generated_at": "2026-09-24T00:00:00Z",
-  "data_cutoff": null,
+  "generated_at": "2026-09-25T08:42:21.853000Z",
+  "data_cutoff": "2026-09-03T05:19:02.881000Z",
   "source": {
     "repository": "pylikv-jpg/QueueLoggerData",
+    "commit": "d0b97f62696480645a74c08d38bcd44ac1bb3438",
     "record_timestamp_based": true,
-    "status": "placeholder_until_backtest_export"
+    "status": "withheld_pending_accuracy_review",
+    "calibration_cutoff": "2026-09-03T21:35:11.152000Z"
   },
   "entries": []
 }
