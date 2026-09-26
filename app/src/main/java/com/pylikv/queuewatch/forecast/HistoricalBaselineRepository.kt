@@ -22,7 +22,17 @@ class HistoricalBaselineRepository(context: Context) {
         }
         val row = candidates.firstOrNull { it.optInt("hour_bucket_start") == hour }
             ?: candidates.firstOrNull { it.optInt("hour_bucket_start") == -1 } ?: return null
-        return HistoricalEstimate(row.getDouble("positions_per_hour"), row.getInt("sample_count"),
-            row.optDouble("absolute_error_p50_minutes", 0.0), row.optDouble("absolute_error_p80_minutes", 0.0), cutoff)
+
+        val movementCycle = row.optDouble("movement_cycle_minutes", 40.0)
+            .takeIf { it.isFinite() && it in 20.0..90.0 } ?: 40.0
+
+        return HistoricalEstimate(
+            row.getDouble("positions_per_hour"),
+            row.getInt("sample_count"),
+            row.optDouble("absolute_error_p50_minutes", 0.0),
+            row.optDouble("absolute_error_p80_minutes", 0.0),
+            cutoff,
+            movementCycle
+        )
     }
 }
