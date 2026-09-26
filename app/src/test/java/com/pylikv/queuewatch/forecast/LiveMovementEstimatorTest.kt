@@ -41,7 +41,13 @@ class LiveMovementEstimatorTest {
     fun realElapsedTimeReplacesVirtualWindow() {
         val estimator = LiveMovementEstimator()
         estimator.observePosition(0L, 100)
+        estimator.observePosition(10 * MINUTE, 95)
         estimator.observePosition(20 * MINUTE, 90)
+        estimator.observePosition(30 * MINUTE, 90)
+        estimator.observePosition(40 * MINUTE, 85)
+        estimator.observePosition(50 * MINUTE, 85)
+        estimator.observePosition(60 * MINUTE, 80)
+        estimator.observePosition(70 * MINUTE, 80)
         estimator.observePosition(80 * MINUTE, 80)
 
         val speed = estimator.estimate(
@@ -60,6 +66,7 @@ class LiveMovementEstimatorTest {
         val estimator = LiveMovementEstimator()
         estimator.observePosition(0L, 50)
         estimator.observePosition(10 * MINUTE, 50)
+        estimator.observePosition(20 * MINUTE, 50)
         estimator.observePosition(21 * MINUTE, 50)
 
         assertTrue(estimator.stationary(21 * MINUTE))
@@ -87,7 +94,11 @@ class LiveMovementEstimatorTest {
         val estimator = LiveMovementEstimator()
         estimator.observePosition(0L, 100)
         estimator.observePosition(10 * MINUTE, 95)
+        estimator.observePosition(20 * MINUTE, 90)
+        estimator.observePosition(30 * MINUTE, 85)
         estimator.observePosition(40 * MINUTE, 80)
+        estimator.observePosition(50 * MINUTE, 80)
+        estimator.observePosition(60 * MINUTE, 80)
         estimator.observePosition(70 * MINUTE, 80)
 
         val speed = estimator.estimate(
