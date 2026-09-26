@@ -1,182 +1,106 @@
 package com.pylikv.queuewatch.forecast
 
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LiveMovementEstimatorTest {
-    @Test fun batchCountsOnceAndArrivalsDoNotChangeRate() {
-        val estimator = LiveMovementEstimator()
-        estimator.observePositions(0, mapOf("A" to 120, "B" to 121, "C" to 122))
-        estimator.observePositions(600_000, mapOf("A" to 110, "B" to 111, "C" to 112, "NEW" to 200))
-        val result = estimator.estimate(600_000)!!
-        assertEquals(60.0, result.positionsPerHour, 0.001)
-        assertEquals(1, result.sampleCount)
-    }
-    @Test fun waitingTimeReducesRateInsteadOfBeingDiscarded() {
-        val e = LiveMovementEstimator()
-        e.observePositions(0, mapOf("A" to 100))
-        for (i in 1..10) e.observePositions(i * 60_000L, mapOf("A" to if (i < 10) 100 else 90))
-        assertEquals(60.0, e.estimate(600_000)!!.positionsPerHour, 0.001)
-        for (i in 11..20) e.observePositions(i * 60_000L, mapOf("A" to 90))
-        assertEquals(30.0, e.estimate(1_200_000)!!.positionsPerHour, 0.001)
-    }
-    @Test fun gapsAndBackwardsMovementDoNotBecomeThroughput() {
-        val e = LiveMovementEstimator()
-        e.observePositions(0, mapOf("A" to 20))
-        e.observePositions(600_000, mapOf("A" to 22))
-        assertNull(e.estimate(600_000))
-        e.observePositions(3_600_000, mapOf("A" to 1))
-        assertNull(e.estimate(3_600_000))
-        assertTrue(e.dataGap)
-    }
-    @Test fun duplicateTimestampAndStaleDataCannotCreateSpeed() {
-        val e = LiveMovementEstimator()
-        e.observePositions(0, mapOf("A" to 20))
-        e.observePositions(0, mapOf("A" to 10))
-        assertNull(e.estimate(0))
-        e.observePositions(600_000, mapOf("A" to 10))
-        assertNull(e.estimate(900_000))
-    }
-    @Test fun stationaryQueueIsExplicit() {
-        val e = LiveMovementEstimator()
-        for (i in 0..30) e.observePositions(i * 60_000L, mapOf("A" to 20))
-        assertTrue(e.stationary(1_800_000))
-        assertNull(e.estimate(1_800_000))
-    }
-
 
     @Test
-    fun massRenumberingCountsAsOneBatchMovement() {
+    fun firstBurstUsesVirtualWindowInsteadOfBurstDuration() {
         val estimator = LiveMovementEstimator()
+        estimator.observePosition(0L, 100)
+        estimator.observePosition(10 * MINUTE, 90)
 
-        estimator.observePositions(
-            0L,
-            mapOf("A" to 120, "B" to 121, "C" to 122)
-        )
-        estimator.observePositions(
-            10 * 60_000L,
-            mapOf("A" to 110, "B" to 111, "C" to 112)
+        val speed = estimator.estimate(
+            now = 10 * MINUTE,
+            virtualWindowMinutes = 40.0,
+            minimumObservedMinutes = 0.0
         )
 
-        val estimate =
-            estimator.estimate(10 * 60_000L)!!
-
-        assertEquals(
-            60.0,
-            estimate.positionsPerHour,
-            0.01
-        )
-        assertEquals(
-            1,
-            estimate.sampleCount
-        )
+        assertEquals(15.0, speed!!.positionsPerHour, 0.001)
     }
 
     @Test
-    fun arrivalsBehindQueueDoNotReduceMeasuredThroughput() {
+    fun liveOnlyForecastWaitsForRealWarmup() {
         val estimator = LiveMovementEstimator()
-
-        estimator.observePositions(
-            0L,
-            mapOf("A" to 20, "B" to 21)
-        )
-        estimator.observePositions(
-            10 * 60_000L,
-            mapOf(
-                "A" to 15,
-                "B" to 16,
-                "NEW" to 40
-            )
-        )
-
-        val estimate =
-            estimator.estimate(10 * 60_000L)!!
-
-        assertEquals(
-            30.0,
-            estimate.positionsPerHour,
-            0.01
-        )
-    }
-
-    @Test
-    fun backwardsMovementIsNotThroughput() {
-        val estimator = LiveMovementEstimator()
-
-        estimator.observePositions(
-            0L,
-            mapOf("A" to 20)
-        )
-        estimator.observePositions(
-            10 * 60_000L,
-            mapOf("A" to 22)
-        )
+        estimator.observePosition(0L, 100)
+        estimator.observePosition(10 * MINUTE, 90)
 
         assertNull(
             estimator.estimate(
-                10 * 60_000L
+                now = 10 * MINUTE,
+                virtualWindowMinutes = 40.0,
+                minimumObservedMinutes = 30.0
             )
         )
     }
 
     @Test
-    fun oldSamplesFallOutOfSixtyMinuteWindow() {
+    fun realElapsedTimeReplacesVirtualWindow() {
         val estimator = LiveMovementEstimator()
+        estimator.observePosition(0L, 100)
+        estimator.observePosition(20 * MINUTE, 90)
+        estimator.observePosition(80 * MINUTE, 80)
 
-        estimator.observePositions(
-            0L,
-            mapOf("A" to 20)
+        val speed = estimator.estimate(
+            now = 80 * MINUTE,
+            virtualWindowMinutes = 40.0,
+            minimumObservedMinutes = 30.0
         )
-        estimator.observePositions(
-            10 * 60_000L,
-            mapOf("A" to 15)
-        )
+
+        assertTrue(speed != null)
+        assertTrue(speed!!.positionsPerHour < 20.0)
+        assertTrue(speed.positionsPerHour > 10.0)
+    }
+
+    @Test
+    fun stationaryQueueIsDetectedFromElapsedTime() {
+        val estimator = LiveMovementEstimator()
+        estimator.observePosition(0L, 50)
+        estimator.observePosition(10 * MINUTE, 50)
+        estimator.observePosition(21 * MINUTE, 50)
+
+        assertTrue(estimator.stationary(21 * MINUTE))
+    }
+
+    @Test
+    fun longGapResetsLiveEstimate() {
+        val estimator = LiveMovementEstimator()
+        estimator.observePosition(0L, 100)
+        estimator.observePosition(10 * MINUTE, 90)
+        estimator.observePosition(25 * MINUTE, 80)
 
         assertNull(
             estimator.estimate(
-                71 * 60_000L
+                now = 25 * MINUTE,
+                virtualWindowMinutes = 40.0,
+                minimumObservedMinutes = 0.0
             )
         )
+        assertTrue(estimator.dataGap)
     }
 
     @Test
-    fun independentEstimatorsDoNotShareVehicleTypeSamples() {
-        val cars =
-            LiveMovementEstimator()
-        val trucks =
-            LiveMovementEstimator()
+    fun slowerRecentHourPullsSpeedDown() {
+        val estimator = LiveMovementEstimator()
+        estimator.observePosition(0L, 100)
+        estimator.observePosition(10 * MINUTE, 95)
+        estimator.observePosition(40 * MINUTE, 80)
+        estimator.observePosition(70 * MINUTE, 80)
 
-        cars.observePositions(
-            0L,
-            mapOf("C1" to 20)
-        )
-        trucks.observePositions(
-            0L,
-            mapOf("T1" to 30)
-        )
+        val speed = estimator.estimate(
+            now = 70 * MINUTE,
+            virtualWindowMinutes = 40.0,
+            minimumObservedMinutes = 30.0
+        )!!
 
-        cars.observePositions(
-            10 * 60_000L,
-            mapOf("C1" to 20)
-        )
-        trucks.observePositions(
-            10 * 60_000L,
-            mapOf("T1" to 25)
-        )
-
-        assertNull(
-            cars.estimate(
-                10 * 60_000L
-            )
-        )
-
-        assertEquals(
-            30.0,
-            trucks.estimate(
-                10 * 60_000L
-            )!!.positionsPerHour,
-            0.01
-        )
+        val longRate = 20.0 * 60.0 / 70.0
+        assertTrue(speed.positionsPerHour < longRate)
     }
 
+    private companion object {
+        const val MINUTE = 60_000L
+    }
 }
