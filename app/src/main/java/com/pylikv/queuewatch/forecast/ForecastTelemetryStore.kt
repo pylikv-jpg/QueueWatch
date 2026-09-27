@@ -5,6 +5,7 @@ import java.util.Base64
 
 enum class ForecastTelemetryEventType {
     PREDICTION,
+    OBSERVATION,
     ACTUAL_CALL
 }
 
@@ -22,7 +23,7 @@ class ForecastTelemetryStore(
     private val storage:
         ForecastStorage,
     private val maxEvents:
-        Int = 500
+        Int = 1500
 ) {
 
     companion object {
@@ -166,9 +167,9 @@ class ForecastTelemetryStore(
                 events
                     .withIndex()
                     .filter {
-                        it.value.type ==
+                        it.value.type !=
                             ForecastTelemetryEventType
-                                .PREDICTION
+                                .ACTUAL_CALL
                     }
                     .minByOrNull {
                         it.value

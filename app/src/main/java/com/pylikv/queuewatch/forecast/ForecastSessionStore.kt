@@ -2,6 +2,7 @@ package com.pylikv.queuewatch.forecast
 
 import android.content.SharedPreferences
 import java.util.UUID
+import com.pylikv.queuewatch.VehicleType
 
 interface ForecastStorage {
 
@@ -117,6 +118,8 @@ class ForecastSessionStore(
         const val KEY_LAST_IN_QUEUE_AT =
             "forecast_last_in_queue_at"
 
+        private const val KEY_VEHICLE_TYPE = "forecast_observation_vehicle_type"
+
         private val VISIBLE_KEYS =
             setOf(
                 KEY_ETA_MINUTES,
@@ -135,9 +138,18 @@ class ForecastSessionStore(
                     KEY_SESSION_CAR_KEY,
                     KEY_CALLED_AT,
                     KEY_STARTED_AT,
-                    KEY_LAST_IN_QUEUE_AT
+                    KEY_LAST_IN_QUEUE_AT,
+                    KEY_VEHICLE_TYPE
                 )
     }
+
+    fun saveVehicleType(localCarKey: String, type: VehicleType) {
+        if (currentSessionId(localCarKey) != null) storage.write(KEY_VEHICLE_TYPE, type.name)
+    }
+
+    fun lastVehicleType(localCarKey: String): VehicleType? =
+        if (currentSessionId(localCarKey) == null) null else
+            storage.read(KEY_VEHICLE_TYPE)?.let { runCatching { VehicleType.valueOf(it) }.getOrNull() }
 
     fun ensureSession(
         localCarKey: String,

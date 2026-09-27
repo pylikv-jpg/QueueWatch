@@ -42,6 +42,14 @@ jobs:
       - name: Verify Forecast flavor configuration
         run: python3 tools/verify_forecast_flavors.py
 
+      - name: Set up Node for telemetry contract tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify telemetry request compatibility
+        run: node --experimental-strip-types --test backend/submit-queuewatch-forecast/validation.test.mjs
+
       - name: Run Forecast unit tests
         run: gradle testForecastDebugUnitTest
 

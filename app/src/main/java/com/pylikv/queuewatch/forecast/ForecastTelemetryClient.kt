@@ -70,6 +70,26 @@ object ForecastTelemetryPayloads {
         .put("stale_live_data", staleLiveData)
         .toString()
 
+    fun observation(
+        identity: ForecastTelemetryIdentity, observedAtMillis: Long, state: String,
+        position: Int?, queueCount: Int?, baseline: ForecastResult, shadow: ShadowForecast,
+        dataGap: Boolean, eventId: String
+    ): String = base(identity, eventId, "observation")
+        .put("observed_at", Instant.ofEpochMilli(observedAtMillis).toString())
+        .put("observation_state", state)
+        .put("current_position", position ?: JSONObject.NULL)
+        .put("queue_count_same_type", queueCount ?: JSONObject.NULL)
+        .put("data_gap", dataGap)
+        .put("baseline_predicted_minutes", (baseline as? ForecastResult.Available)?.etaMinutes ?: JSONObject.NULL)
+        .put("baseline_unavailable_reason", (baseline as? ForecastResult.Unavailable)?.reason ?: JSONObject.NULL)
+        .put("shadow_algorithm_version", ElapsedWindowForecast.VERSION)
+        .put("shadow_predicted_minutes", shadow.predictedMinutes ?: JSONObject.NULL)
+        .put("shadow_unavailable_reason", shadow.unavailableReason ?: JSONObject.NULL)
+        .put("shadow_speed", shadow.positionsPerHour ?: JSONObject.NULL)
+        .put("window_minutes", shadow.windowMinutes ?: JSONObject.NULL)
+        .put("moved_positions", shadow.movedPositions ?: JSONObject.NULL)
+        .toString()
+
     fun actualCall(
         identity: ForecastTelemetryIdentity,
         calledAtMillis: Long,

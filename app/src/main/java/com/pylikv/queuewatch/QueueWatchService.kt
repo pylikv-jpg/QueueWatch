@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import com.pylikv.queuewatch.forecast.ElapsedWindowForecast
 import com.pylikv.queuewatch.forecast.ForecastEngineV1
 import com.pylikv.queuewatch.forecast.ForecastInput
 import com.pylikv.queuewatch.forecast.ForecastResult
@@ -125,6 +126,8 @@ class QueueWatchService : Service() {
             )
         } else null
     }
+    private val shadowForecast by lazy { ElapsedWindowForecast(forecastTelemetryStorage) }
+
     private val forecastTelemetryRecorder by lazy {
         forecastTelemetryClient?.let { ForecastTelemetryRecorder(forecastTelemetryStorage, it) }
     }
@@ -368,6 +371,7 @@ class QueueWatchService : Service() {
                         val vehicle = analyzer.findVehicle(json, session.carNumber)
 
                         if (vehicle == null) {
+                            recordForecastStatus(forecastStore, forecastLocalCarKey, checkpointId, "MISSING")
                             invalidateForecast(forecastStore, forecastLocalCarKey)
                             if (!vehicleWasConfirmed) {
                                 saveState("", null)
@@ -380,6 +384,14 @@ class QueueWatchService : Service() {
                             }
                         } else {
                             vehicleWasConfirmed = true
+                            if (forecastStore != null && forecastLocalCarKey != null) {
+                                val priorType = forecastStore.lastVehicleType(forecastLocalCarKey)
+                                if (priorType != null && priorType != vehicle.vehicleType) {
+                                    forecastStore.reset()
+                                    forecastStore.ensureSession(forecastLocalCarKey)
+                                }
+                                forecastStore.saveVehicleType(forecastLocalCarKey, vehicle.vehicleType)
+                            }
 
                             // Count only live-queue vehicles of the same type
                             // as the vehicle currently being tracked.
@@ -465,6 +477,7 @@ class QueueWatchService : Service() {
 
                                     previousPosition = currentPosition
                                     if (currentPosition == null) {
+                                        recordForecastStatus(forecastStore, forecastLocalCarKey, checkpointId, "UNKNOWN")
                                         invalidateForecast(forecastStore, forecastLocalCarKey)
                                     }
                                     saveMessage("Автомобиль находится в живой очереди.")
@@ -524,6 +537,7 @@ class QueueWatchService : Service() {
                                 }
 
                                 VehicleState.UNKNOWN -> {
+                                    recordForecastStatus(forecastStore, forecastLocalCarKey, checkpointId, "UNKNOWN")
                                     invalidateForecast(forecastStore, forecastLocalCarKey)
                                     saveState("UNKNOWN", null)
                                     saveMessage(
@@ -535,6 +549,7 @@ class QueueWatchService : Service() {
                         }
                     },
                     onFailure = {
+                        recordForecastStatus(forecastStore, forecastLocalCarKey, checkpointId, "SOURCE_ERROR")
                         invalidateForecast(forecastStore, forecastLocalCarKey)
                         saveMessage("Ошибка получения данных. Повторяем попытку…")
                     }
@@ -542,6 +557,7 @@ class QueueWatchService : Service() {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
+                recordForecastStatus(forecastStore, forecastLocalCarKey, checkpointId, "SOURCE_ERROR")
                 invalidateForecast(forecastStore, forecastLocalCarKey)
                 saveMessage("Временная ошибка. Мониторинг продолжается.")
             }
@@ -584,6 +600,7 @@ class QueueWatchService : Service() {
         // Re-entering the live queue after a completed call is a new visit.
         if (forecastStore.calledAtMillis(forecastLocalCarKey) != null) forecastStore.reset()
         forecastStore.ensureSession(forecastLocalCarKey, nowMillis)
+        forecastStore.saveVehicleType(forecastLocalCarKey, vehicle.vehicleType)
         val previousSeen = forecastStore.lastInQueueAtMillis(forecastLocalCarKey)
         val dataGap = previousSeen == null || nowMillis - previousSeen !in 0L..120_000L
         forecastStore.markInQueue(forecastLocalCarKey, nowMillis)
@@ -634,6 +651,15 @@ class QueueWatchService : Service() {
                 )
             )
 
+        // Record every successful poll, including warmup, standstill and missing ETA.
+        // The candidate never feeds the visible ETA or alerts.
+        runCatching {
+            val identity = telemetryIdentity(forecastStore, forecastLocalCarKey,
+                checkpointId, vehicle.vehicleType) ?: return@runCatching
+            val shadow = shadowForecast.observe(identity, nowMillis, currentPosition)
+            forecastTelemetryRecorder?.recordObservation(identity, nowMillis, "IN_QUEUE",
+                currentPosition, sameTypeLiveQueueCount, forecast, shadow, dataGap)
+        }
         when (
             forecast
         ) {
@@ -664,6 +690,19 @@ class QueueWatchService : Service() {
         }
     }
 
+
+    private fun recordForecastStatus(store: ForecastSessionStore?, localKey: String?, checkpointId: String, state: String) {
+        if (store == null || localKey == null) return
+        runCatching {
+            val type = store.lastVehicleType(localKey) ?: return@runCatching
+            if (store.calledAtMillis(localKey) != null) return@runCatching
+            val identity = telemetryIdentity(store, localKey, checkpointId, type) ?: return@runCatching
+            val now = System.currentTimeMillis()
+            val shadow = shadowForecast.observe(identity, now, null)
+            forecastTelemetryRecorder?.recordObservation(identity, now, state, null, null,
+                ForecastResult.Unavailable(state.lowercase()), shadow, true)
+        }
+    }
 
     private fun invalidateForecast(store: ForecastSessionStore?, localKey: String?) {
         if (store != null && localKey != null) runCatching { store.clearVisible(localKey) }

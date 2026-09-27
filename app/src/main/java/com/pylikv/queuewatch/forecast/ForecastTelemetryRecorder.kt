@@ -39,12 +39,31 @@ class ForecastTelemetryRecorder(
     }
 
     @Synchronized
+    fun recordObservation(
+        identity: ForecastTelemetryIdentity, observedAtMillis: Long, observationState: String,
+        position: Int?, queueCount: Int?, baseline: ForecastResult, shadow: ShadowForecast,
+        dataGap: Boolean
+    ): Boolean = safely {
+        val state = readState(identity)
+        if (state.optBoolean("closed") || observedAtMillis < identity.startedAtMillis ||
+            state.has("observation_at") && observedAtMillis <= state.getLong("observation_at")) return@safely false
+        val id = eventId("observation", identity.forecastSessionId, observedAtMillis)
+        val payload = ForecastTelemetryPayloads.observation(identity, observedAtMillis, observationState,
+            position, queueCount, baseline, shadow, dataGap, id)
+        if (!client.enqueue(PendingForecastTelemetryEvent(id, ForecastTelemetryEventType.OBSERVATION,
+                payload, observedAtMillis, 0, 0L))) return@safely false
+        storage.write(KEY_STATE, state.put("observation_at", observedAtMillis).toString())
+        true
+    }
+
+    @Synchronized
     fun recordActualCall(
         identity: ForecastTelemetryIdentity, calledAtMillis: Long, lastInQueueAtMillis: Long
     ): Boolean = safely {
         val state = readState(identity)
         if (state.optBoolean("closed") || lastInQueueAtMillis < identity.startedAtMillis ||
-            calledAtMillis < lastInQueueAtMillis || calledAtMillis < state.optLong("at", 0L)) {
+            calledAtMillis < lastInQueueAtMillis || calledAtMillis < state.optLong("at", 0L) ||
+            calledAtMillis < state.optLong("observation_at", 0L)) {
             return@safely false
         }
         // A deterministic closure ID survives a process death between enqueue and checkpoint.
