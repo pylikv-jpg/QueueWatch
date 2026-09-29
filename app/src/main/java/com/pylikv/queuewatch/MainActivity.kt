@@ -1448,7 +1448,7 @@ private fun OfficialSourceNotice() {
    ============================================================ */
 
 @Composable
-private fun TrackingScreen(
+internal fun TrackingScreen(
 
     carNumber: String,
 
@@ -1458,7 +1458,11 @@ private fun TrackingScreen(
 
     positionAlertThreshold: Int,
 
-    calledAlertEnabled: Boolean
+    calledAlertEnabled: Boolean,
+
+    startMonitoring: Boolean = true,
+
+    onTrackingStopped: (() -> Unit)? = null
 ) {
 
     val context =
@@ -1493,8 +1497,13 @@ private fun TrackingScreen(
 
     LaunchedEffect(
         carNumber,
-        checkpointName
+        checkpointName,
+        startMonitoring
     ) {
+
+        // The launcher has already resumed the durable session without extras.
+        // Reusing this screen must not start the monitoring loop a second time.
+        if (!startMonitoring) return@LaunchedEffect
 
         val intent =
             Intent(
@@ -2093,8 +2102,7 @@ private fun TrackingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(
-                    rememberScrollState(),
-                    enabled = forecastEnabled
+                    rememberScrollState()
                 )
                 .padding(
                     horizontal = 20.dp,
@@ -2936,6 +2944,32 @@ private fun TrackingScreen(
                     )
             )
 
+
+            if (onTrackingStopped != null) {
+                Button(
+                    onClick = {
+                        runCatching {
+                            context.startService(
+                                Intent(context, QueueWatchService::class.java).apply {
+                                    action = QueueWatchService.ACTION_STOP_TRACKING
+                                }
+                            )
+                        }
+                        preferences.edit()
+                            .putBoolean(QueueWatchService.KEY_TRACKING_ACTIVE, false)
+                            .commit()
+                        onTrackingStopped()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF303A45),
+                        contentColor = MainTextColor
+                    )
+                ) {
+                    Text("ОСТАНОВИТЬ ОТСЛЕЖИВАНИЕ", fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(14.dp))
+            }
 
             OfficialSourceNotice()
 

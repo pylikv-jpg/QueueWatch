@@ -28,8 +28,8 @@ android {
         create("forecast") {
             dimension = "mode"
             applicationId = "com.pylikv.queuewatch.forecast"
-            versionCode = 14
-            versionName = "1.0.6"
+            versionCode = 15
+            versionName = "1.0.7"
             versionNameSuffix = "-forecast"
         }
     }
