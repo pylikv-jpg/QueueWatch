@@ -12,8 +12,8 @@ android {
         applicationId = "com.pylikv.queuewatch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.0.5"
+        versionCode = providers.gradleProperty("queuewatchVersionCode").orElse("20").get().toInt()
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -77,4 +77,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

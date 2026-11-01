@@ -6,6 +6,8 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -221,6 +223,7 @@ private fun RestoredTrackingScreen() {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
@@ -363,6 +366,9 @@ private fun RestoredTrackingScreen() {
                 )
 
                 Spacer(Modifier.height(18.dp))
+
+                ForecastAnalyticsControl()
+                Spacer(Modifier.height(14.dp))
 
                 Button(
                     onClick = {

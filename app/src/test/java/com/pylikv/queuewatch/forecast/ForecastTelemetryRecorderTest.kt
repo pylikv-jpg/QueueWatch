@@ -1,0 +1,146 @@
+package com.pylikv.queuewatch.forecast
+
+import com.pylikv.queuewatch.VehicleType
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+
+class ForecastTelemetryRecorderTest {
+    private class MemoryStorage : ForecastStorage {
+        val values = mutableMapOf<String, String>()
+        override fun read(key: String) = values[key]
+        override fun write(key: String, value: String) { values[key] = value }
+        override fun remove(keys: Set<String>) { keys.forEach(values::remove) }
+    }
+    private val identity = ForecastTelemetryIdentity(
+        "11111111-1111-4111-8111-111111111111",
+        "22222222-2222-4222-8222-222222222222", "v1",
+        "98b5be92-d3a5-4ba2-9106-76eb4eb3df49", VehicleType.TRUCK, 0L
+    )
+    private val forecast = ForecastResult.Available(100.0, 70.0, 130.0,
+        ForecastConfidence.LOW, 30.0)
+    private fun record(recorder: ForecastTelemetryRecorder, at: Long, position: Int = 51,
+        result: ForecastResult.Available = forecast) = recorder.recordPrediction(
+        identity, at, position, 100, null, null, result, false, false
+    )
+
+    @Test fun unavailableAndUnchangedPollsAreRecordedWithShadowAndNoVehicleNumber() {
+        val storage = MemoryStorage()
+        val queue = ForecastTelemetryStore(storage)
+        val recorder = ForecastTelemetryRecorder(storage, ForecastTelemetryClient(queue,
+            ForecastTelemetryTransport { ForecastTelemetrySendOutcome.SUCCESS }))
+        for (at in listOf(20_000L, 40_000L)) assertTrue(recorder.recordObservation(identity, at,
+            "IN_QUEUE", 80, 120, ForecastResult.Unavailable("insufficient_speed_data"),
+            ShadowForecast(unavailableReason = "collecting_60_minutes", windowMinutes = 0.0, movedPositions = 0), false))
+        assertEquals(2, queue.all().size)
+        val payload = JSONObject(queue.all().first().payloadJson)
+        assertEquals("observation", payload.getString("event_type"))
+        assertTrue(payload.isNull("baseline_predicted_minutes"))
+        assertTrue(payload.isNull("shadow_predicted_minutes"))
+        assertFalse(payload.has("regnum"))
+        assertEquals("elapsed_window_v2", payload.getString("shadow_algorithm_version"))
+        assertFalse(recorder.recordActualCall(identity, 30_000L, 20_000L))
+    }
+
+    @Test fun observationsSurviveRestartAndDoNotCollideWithPredictionAtSameTime() {
+        val storage = MemoryStorage()
+        val queue = ForecastTelemetryStore(storage)
+        val client = ForecastTelemetryClient(queue, ForecastTelemetryTransport { ForecastTelemetrySendOutcome.SUCCESS })
+        val recorder = ForecastTelemetryRecorder(storage, client)
+        assertTrue(recorder.recordObservation(identity, 60_000L, "IN_QUEUE", 51, 100,
+            forecast, ShadowForecast(110.0, null, 30.0, 100.0, 50), false))
+        assertFalse(ForecastTelemetryRecorder(storage, client).recordObservation(identity, 60_000L,
+            "IN_QUEUE", 51, 100, forecast, ShadowForecast(), false))
+        assertTrue(record(recorder, 60_000L))
+        assertEquals(2, queue.all().map { it.eventId }.toSet().size)
+    }
+
+    @Test fun observationOverflowPreservesActualCallAndSourceErrorsHaveNoInventedPosition() {
+        val storage = MemoryStorage()
+        val queue = ForecastTelemetryStore(storage, 2)
+        val client = ForecastTelemetryClient(queue, ForecastTelemetryTransport { ForecastTelemetrySendOutcome.SUCCESS })
+        val recorder = ForecastTelemetryRecorder(storage, client)
+        assertTrue(recorder.recordActualCall(identity, 60_000L, 40_000L))
+        val next = identity.copy(forecastSessionId = "33333333-3333-4333-8333-333333333333")
+        for (at in listOf(80_000L, 100_000L, 120_000L)) recorder.recordObservation(next, at,
+            "SOURCE_ERROR", null, null, ForecastResult.Unavailable("source_error"),
+            ShadowForecast(unavailableReason = "no_confirmed_position"), true)
+        assertEquals(2, queue.all().size)
+        assertEquals(ForecastTelemetryEventType.ACTUAL_CALL, queue.all().first().type)
+        assertTrue(JSONObject(queue.all().last().payloadJson).isNull("current_position"))
+    }
+
+    @Test fun unchangedPredictionsAreSuppressedAcrossRestartButMaterialChangesAreKept() {
+        val storage = MemoryStorage()
+        val queue = ForecastTelemetryStore(storage)
+        val client = ForecastTelemetryClient(queue, ForecastTelemetryTransport { error("offline") })
+        record(ForecastTelemetryRecorder(storage, client), 60_000L)
+        val restored = ForecastTelemetryRecorder(storage, client)
+        record(restored, 80_000L)
+        assertEquals(1, queue.all().size)
+        record(restored, 100_000L, position = 50)
+        record(restored, 120_000L, position = 50, result = forecast.copy(etaMinutes = 111.0))
+        record(restored, 140_000L, position = 50, result = forecast.copy(etaMinutes = 111.0, confidence = ForecastConfidence.MEDIUM))
+        assertEquals(4, queue.all().size)
+        record(restored, 1_040_000L, position = 50, result = forecast.copy(etaMinutes = 111.0, confidence = ForecastConfidence.MEDIUM))
+        assertEquals(5, queue.all().size)
+    }
+
+    @Test fun confirmedCallIsQueuedOnceAcrossRestartAndCarriesLastObservedQueueTime() {
+        val storage = MemoryStorage()
+        val queue = ForecastTelemetryStore(storage)
+        val client = ForecastTelemetryClient(queue, ForecastTelemetryTransport { ForecastTelemetrySendOutcome.SUCCESS })
+        val recorder = ForecastTelemetryRecorder(storage, client)
+        record(recorder, 60_000L)
+        assertTrue(recorder.recordActualCall(identity, 120_000L, 100_000L))
+        val call = JSONObject(queue.all().last().payloadJson)
+        assertEquals("1970-01-01T00:02:00Z", call.getString("called_at"))
+        assertEquals("1970-01-01T00:01:40Z", call.getString("last_in_queue_at"))
+        assertEquals(10, call.length())
+        client.flushPending(150_000L)
+        assertTrue(queue.all().isEmpty())
+        assertFalse(ForecastTelemetryRecorder(storage, client).recordActualCall(identity, 180_000L, 100_000L))
+        assertTrue(queue.all().isEmpty())
+    }
+
+    @Test fun invalidCallTimingAndPredictionAfterCallAreNeverQueued() {
+        val storage = MemoryStorage()
+        val queue = ForecastTelemetryStore(storage)
+        val client = ForecastTelemetryClient(queue, ForecastTelemetryTransport { ForecastTelemetrySendOutcome.SUCCESS })
+        val recorder = ForecastTelemetryRecorder(storage, client)
+        assertFalse(recorder.recordActualCall(identity, 30_000L, 60_000L))
+        assertTrue(queue.all().isEmpty())
+        recorder.recordActualCall(identity, 100_000L, 60_000L)
+        record(recorder, 120_000L)
+        assertEquals(1, queue.all().size)
+    }
+
+    @Test fun changedDisplayBoundsAreUploadedEvenWhenThePointEstimateDoesNotChange() {
+        val storage = MemoryStorage()
+        val queue = ForecastTelemetryStore(storage)
+        val client = ForecastTelemetryClient(queue, ForecastTelemetryTransport { ForecastTelemetrySendOutcome.SUCCESS })
+        val recorder = ForecastTelemetryRecorder(storage, client)
+        assertTrue(record(recorder, 60_000L))
+        val wider = forecast.copy(lowMinutes = 20.0, highMinutes = 200.0)
+        assertTrue(record(recorder, 80_000L, result = wider))
+        val uploaded = JSONObject(queue.all().last().payloadJson)
+        assertEquals(wider.etaMinutes, uploaded.getDouble("predicted_minutes"), 0.0)
+        assertEquals(20.0, uploaded.getDouble("predicted_low_minutes"), 0.0)
+        assertEquals(200.0, uploaded.getDouble("predicted_high_minutes"), 0.0)
+    }
+
+    @Test fun offlineTransportDoesNotPreventNextTrackingObservationAndRetriesIdenticalPayload() {
+        val storage = MemoryStorage()
+        val queue = ForecastTelemetryStore(storage)
+        val client = ForecastTelemetryClient(queue, ForecastTelemetryTransport { throw java.io.IOException("offline") })
+        val recorder = ForecastTelemetryRecorder(storage, client)
+        record(recorder, 60_000L)
+        val original = queue.all().single().payloadJson
+        client.flushPending(60_000L)
+        record(recorder, 80_000L, position = 49)
+        assertEquals(2, queue.all().size)
+        assertEquals(original, queue.all().first().payloadJson)
+        assertEquals(1, queue.all().first().attemptCount)
+        assertEquals(120_000L, queue.all().first().nextAttemptAtMillis)
+    }
+}

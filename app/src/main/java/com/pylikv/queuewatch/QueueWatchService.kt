@@ -89,6 +89,8 @@ class QueueWatchService : Service() {
     private var alertManager: QueueAlertManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
+    private val analytics by lazy { ForecastAnalyticsRuntime(applicationContext) }
+
     private lateinit var preferences: android.content.SharedPreferences
 
     override fun onCreate() {
@@ -264,7 +266,7 @@ class QueueWatchService : Service() {
             "${session.carNumber} • ${session.checkpoint} • отслеживание активно"
         )
 
-        while (isActive && preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {
+        while (preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {
             try {
                 val result = api.getMonitoring(checkpointId)
 
@@ -275,10 +277,10 @@ class QueueWatchService : Service() {
                             checkpointName = session.checkpoint
                         )
 
-                        saveQueueCount(vehicles.size)
                         saveLastUpdate()
 
                         val vehicle = analyzer.findVehicle(json, session.carNumber)
+                        runCatching { analytics.snapshot(session.carNumber, checkpointId, vehicle, vehicles, analyzer) }
 
                         if (vehicle == null) {
                             if (!vehicleWasConfirmed) {
@@ -292,6 +294,14 @@ class QueueWatchService : Service() {
                             }
                         } else {
                             vehicleWasConfirmed = true
+
+                            // Count only live-queue vehicles of the same type
+                            // as the vehicle currently being tracked.
+                            val sameTypeLiveQueueCount = vehicles.count { candidate ->
+                                candidate.vehicleType == vehicle.vehicleType &&
+                                    analyzer.determineState(candidate) == VehicleState.IN_QUEUE
+                            }
+                            saveQueueCount(sameTypeLiveQueueCount)
 
                             when (analyzer.determineState(vehicle)) {
                                 VehicleState.IN_QUEUE -> {
@@ -383,10 +393,12 @@ class QueueWatchService : Service() {
                         }
                     },
                     onFailure = {
+                        runCatching { analytics.sourceError(session.carNumber, checkpointId) }
                         saveMessage("Ошибка получения данных. Повторяем попытку…")
                     }
                 )
             } catch (_: Exception) {
+                runCatching { analytics.sourceError(session.carNumber, checkpointId) }
                 saveMessage("Временная ошибка. Мониторинг продолжается.")
             }
 
@@ -399,6 +411,7 @@ class QueueWatchService : Service() {
                 "${session.carNumber} • ${session.checkpoint} • отслеживание активно"
             )
 
+            scope.launch { runCatching { analytics.flush { isActive } } }
             delay(UPDATE_INTERVAL)
         }
     }

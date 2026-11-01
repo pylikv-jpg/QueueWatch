@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - fix/persistent-background-tracking
+      - feature/play-forecast-analytics
 
 env:
   PLAY_KEYSTORE_B64: ${{ secrets.QUEUEWATCH_KEYSTORE_BASE64 }}
@@ -35,17 +36,11 @@ jobs:
       - name: Install fixed debug signing key
         run: base64 -d tools/queuewatch-debug.keystore.b64 > tools/queuewatch-debug.keystore
 
-      - name: Apply vehicle type queue count fix
-        run: python3 tools/apply_queue_type_count_fix.py
+      - name: Verify shipped tracking fixes
+        run: python3 tools/verify_materialized_fixes.py
 
-      - name: Apply swipe and back navigation fix
-        run: python3 tools/apply_swipe_navigation_fix.py
-
-      - name: Apply progress-to-call fix
-        run: python3 tools/apply_call_progress_fix.py
-
-      - name: Apply queue movement information
-        run: python3 tools/apply_queue_movement_info.py
+      - name: Test forecast calculations and analytics consent
+        run: gradle testDebugUnitTest
 
       - name: Build debug APK
         run: gradle assembleDebug
