@@ -10,24 +10,25 @@ class AnalyticsConsent(
     private val grantId: () -> String = { UUID.randomUUID().toString() }
 ) {
     companion object {
+        internal val LOCK = Any()
         const val PREFERENCES = "queuewatch_analytics_consent"
         const val DATA_PREFERENCES = "queuewatch_analytics_data"
         private const val KEY = "analytics_consent_v1"
     }
 
-    fun currentGrant(): String? = runCatching {
+    fun currentGrant(): String? = synchronized(LOCK) { runCatching {
         val value = JSONObject(storage.read(KEY) ?: return@runCatching null)
         val token = value.opt("grant")
         if (value.optInt("version") == 1 && token is String && token.isNotBlank()) token else null
-    }.getOrNull()
+    }.getOrNull() }
 
-    fun enable() {
-        if (currentGrant() != null) return
+    fun enable() = synchronized(LOCK) {
+        if (currentGrant() != null) return@synchronized
         clearPending()
         storage.write(KEY, JSONObject().put("version", 1).put("grant", grantId()).toString())
     }
 
-    fun disable() {
+    fun disable() = synchronized(LOCK) {
         // Revoke before clearing, so in-flight old clients cannot recreate a queue.
         storage.remove(setOf(KEY))
         clearPending()
@@ -41,7 +42,13 @@ class ConsentGuardedForecastStorage(
     private val currentGrant: () -> String?
 ) : ForecastStorage {
     fun allowed(): Boolean = currentGrant() == grant
-    override fun read(key: String): String? = if (allowed()) underlying.read(key) else null
-    override fun write(key: String, value: String) { if (allowed()) underlying.write(key, value) }
-    override fun remove(keys: Set<String>) { if (allowed()) underlying.remove(keys) }
+    override fun read(key: String): String? = synchronized(AnalyticsConsent.LOCK) {
+        if (allowed()) underlying.read(key) else null
+    }
+    override fun write(key: String, value: String) = synchronized(AnalyticsConsent.LOCK) {
+        if (allowed()) underlying.write(key, value)
+    }
+    override fun remove(keys: Set<String>) = synchronized(AnalyticsConsent.LOCK) {
+        if (allowed()) underlying.remove(keys)
+    }
 }

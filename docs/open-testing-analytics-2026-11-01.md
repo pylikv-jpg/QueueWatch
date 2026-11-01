@@ -25,10 +25,12 @@ are materialized before adding the feature.
 
 ## Play Console draft
 
-The current open-test release, available version code and upload certificate
-must be verified in the actual Console before submission. Code 20 / 1.1.0 is
-provisional; `-PqueuewatchVersionCode=N` can select a verified unused higher code.
-No claim is made that this candidate has already been uploaded or published.
+Play Console was verified in the authenticated developer account: the active
+open-test release is 13 / 1.0.5 (27 October 2026), package
+`com.pylikv.queuewatch`. The most recent uploaded version is 13. This update uses
+20 / 1.1.0; the signing certificate must still be checked against the signed
+CI artifact before upload. No claim is made that this candidate has already
+been uploaded or published.
 
 Data safety must describe the actual optional collection, including random
 installation/session IDs and queue-monitoring activity. Proposed categories

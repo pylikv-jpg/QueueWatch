@@ -24,33 +24,33 @@ internal class ForecastAnalyticsRuntime(context: Context) {
     private val consent = analyticsConsent(app)
     private val rawStorage = SharedPreferencesForecastStorage(
         app.getSharedPreferences(AnalyticsConsent.DATA_PREFERENCES, Context.MODE_PRIVATE))
-    private var grant: String? = null
-    private var storage: ConsentGuardedForecastStorage? = null
-    private var session: ForecastAnalyticsSession? = null
+    private data class Active(
+        val grant: String, val storage: ConsentGuardedForecastStorage, val session: ForecastAnalyticsSession
+    )
+    private var active: Active? = null
     private val history by lazy { HistoricalBaselineRepository(app) }
 
-    private fun current(): ForecastAnalyticsSession? {
+    @Synchronized
+    private fun current(): Active? {
         val currentGrant = consent.currentGrant()
         if (currentGrant == null) {
-            grant = null; session = null; storage = null
+            active = null
             return null
         }
-        if (grant != currentGrant) {
+        if (active?.grant != currentGrant) {
             val guarded = ConsentGuardedForecastStorage(rawStorage, currentGrant, consent::currentGrant)
             val client = ForecastTelemetryClient(ForecastTelemetryStore(guarded),
                 ForecastTelemetryHttpTransport(app.getString(R.string.forecast_telemetry_endpoint),
                     app.getString(R.string.forecast_telemetry_public_key)))
-            storage = guarded
-            session = ForecastAnalyticsSession(guarded, client)
-            grant = currentGrant
+            active = Active(currentGrant, guarded, ForecastAnalyticsSession(guarded, client))
         }
-        return session
+        return active
     }
 
     private fun localKey(car: String, checkpoint: String) = car.trim().uppercase() + "|" + checkpoint
 
     fun snapshot(car: String, checkpoint: String, vehicle: QueueVehicle?, vehicles: List<QueueVehicle>, analyzer: QueueAnalyzer) {
-        val target = current() ?: return
+        val target = current()?.session ?: return
         val at = System.currentTimeMillis()
         val key = localKey(car, checkpoint)
         if (vehicle == null) { target.unavailable(key, checkpoint, at, "MISSING"); return }
@@ -72,12 +72,11 @@ internal class ForecastAnalyticsRuntime(context: Context) {
     }
 
     fun sourceError(car: String, checkpoint: String) {
-        current()?.unavailable(localKey(car, checkpoint), checkpoint, System.currentTimeMillis(), "SOURCE_ERROR")
+        current()?.session?.unavailable(localKey(car, checkpoint), checkpoint, System.currentTimeMillis(), "SOURCE_ERROR")
     }
 
     fun flush(canContinue: () -> Boolean) {
         val target = current() ?: return
-        val guarded = storage ?: return
-        target.flush(System.currentTimeMillis()) { canContinue() && guarded.allowed() }
+        target.session.flush(System.currentTimeMillis()) { canContinue() && target.storage.allowed() }
     }
 }
