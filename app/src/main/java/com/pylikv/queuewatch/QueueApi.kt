@@ -7,6 +7,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.security.MessageDigest
 
 /**
  * Сетевой слой QueueWatch.
@@ -14,7 +15,12 @@ import java.net.URLEncoder
  * Получает реальный JSON электронной очереди
  * с API Belarusborder.
  */
-class QueueApi {
+class QueueApi(
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val openConnection: (URL) -> HttpURLConnection = {
+        it.openConnection() as HttpURLConnection
+    }
+) {
 
     companion object {
 
@@ -23,6 +29,15 @@ class QueueApi {
 
         private const val DEFAULT_TOKEN =
             "test"
+
+        // Public client protocol used by mon.declarant.by. Without these
+        // headers the source responds HTTP 200 with silently empty queues.
+        // This key is published in the official site's JavaScript, not a
+        // private user credential.
+        private const val PUBLIC_CLIENT_KEY =
+            "3224b44dfe045c3db9f69fe4d582dba41f7266f6fdabe764ad13a39befd89cf"
+
+        private const val TOKEN_SUFFIX = "SemenSemenych"
 
         private const val CONNECT_TIMEOUT_MS =
             15_000
@@ -72,8 +87,7 @@ class QueueApi {
                     "&checkpointId=$encodedCheckpoint"
             )
 
-            connection =
-                url.openConnection() as HttpURLConnection
+            connection = openConnection(url)
 
             connection.requestMethod = "GET"
 
@@ -92,6 +106,15 @@ class QueueApi {
                 "User-Agent",
                 "QueueWatch/1.0 Android"
             )
+
+            connection.setRequestProperty("X-Api-Key", PUBLIC_CLIENT_KEY)
+            val tokenInput = (clock() / 60_000L).toString() + TOKEN_SUFFIX
+            val requestToken = MessageDigest.getInstance("MD5")
+                .digest(tokenInput.toByteArray(Charsets.UTF_8))
+                .joinToString("") { byte ->
+                    (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+                }
+            connection.setRequestProperty("X-Api-Token", requestToken)
 
             val responseCode =
                 connection.responseCode
