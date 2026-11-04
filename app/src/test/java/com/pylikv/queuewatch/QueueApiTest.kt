@@ -1,13 +1,17 @@
 package com.pylikv.queuewatch
 
-import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.HttpURLConnection
-import java.net.InetSocketAddress
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.SocketException
 import java.net.URL
+import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 class QueueApiTest {
@@ -49,34 +53,67 @@ class QueueApiTest {
         block: suspend (QueueApi, AtomicLong) -> Unit
     ) {
         val now = AtomicLong(1_793_809_800_000L)
-        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/info/monitoring-new") { exchange ->
-            // Fixed reference signatures from the official client protocol,
-            // independently calculated for 2026-11-04 16:30 and 16:31 UTC.
-            val expectedToken = if (now.get() < 1_793_809_860_000L) {
-                "e5305e70688fa1a7723ea208797c3269"
-            } else {
-                "591eef17ac1da3cb4457629d8cff8196"
+        // Use standard sockets: Android's test compiler does not expose the
+        // JDK-only com.sun.net.httpserver module.
+        val server = ServerSocket(0, 4, InetAddress.getByName("127.0.0.1"))
+        val executor = Executors.newSingleThreadExecutor()
+        val serving = executor.submit {
+            while (!server.isClosed) {
+                val socket = try {
+                    server.accept()
+                } catch (e: SocketException) {
+                    if (server.isClosed) break else throw e
+                }
+                socket.use {
+                    it.soTimeout = 3_000
+                    val reader = it.getInputStream().bufferedReader(Charsets.UTF_8)
+                    reader.readLine() // Request line; the fixture only serves GETs.
+                    val headers = mutableMapOf<String, String>()
+                    while (true) {
+                        val line = reader.readLine()?.takeIf(String::isNotEmpty) ?: break
+                        val separator = line.indexOf(':')
+                        if (separator > 0) {
+                            headers[line.substring(0, separator).lowercase(Locale.ROOT)] =
+                                line.substring(separator + 1).trim()
+                        }
+                    }
+                    // Independent reference signatures for 16:30/16:31 UTC.
+                    val expectedToken = if (now.get() < 1_793_809_860_000L) {
+                        "e5305e70688fa1a7723ea208797c3269"
+                    } else {
+                        "591eef17ac1da3cb4457629d8cff8196"
+                    }
+                    val authorized = headers["x-api-key"] == PUBLIC_CLIENT_KEY &&
+                        headers["x-api-token"] == expectedToken
+                    // The source returns HTTP 200 and empty arrays for a
+                    // request missing the official public-client headers.
+                    val body = (if (authorized) QUEUE_WITH_VEHICLE else EMPTY_QUEUE)
+                        .toByteArray(Charsets.UTF_8)
+                    val reason = if (status == 200) "OK" else "Service Unavailable"
+                    val response = "HTTP/1.1 $status $reason\r\n" +
+                        "Content-Type: application/json\r\n" +
+                        "Content-Length: ${body.size}\r\nConnection: close\r\n\r\n"
+                    it.getOutputStream().apply {
+                        write(response.toByteArray(Charsets.US_ASCII))
+                        write(body)
+                        flush()
+                    }
+                }
             }
-            val authorized =
-                exchange.requestHeaders.getFirst("X-Api-Key") == PUBLIC_CLIENT_KEY &&
-                    exchange.requestHeaders.getFirst("X-Api-Token") == expectedToken
-            // The actual source returns HTTP 200 and empty arrays when these
-            // public-client headers are missing, rather than an HTTP 401.
-            val body = (if (authorized) QUEUE_WITH_VEHICLE else EMPTY_QUEUE).toByteArray()
-            exchange.sendResponseHeaders(status, body.size.toLong())
-            exchange.responseBody.use { it.write(body) }
-            exchange.close()
         }
-        server.start()
         try {
             val api = QueueApi(clock = now::get, openConnection = { requested ->
-                URL("http://127.0.0.1:${server.address.port}${requested.file}")
+                URL("http://127.0.0.1:${server.localPort}${requested.file}")
                     .openConnection() as HttpURLConnection
             })
             block(api, now)
         } finally {
-            server.stop(0)
+            server.close()
+            try {
+                serving.get(5, TimeUnit.SECONDS)
+            } finally {
+                executor.shutdownNow()
+            }
         }
     }
 
