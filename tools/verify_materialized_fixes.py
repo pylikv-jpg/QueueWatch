@@ -12,7 +12,7 @@ required_main = [
     "BackHandler(",
     "detectHorizontalDragGestures(",
     "val callProgress =",
-    '"movement_session_id"',
+    "TrackingEvidenceStore(",
     "val positionsPassed =",
 ]
 

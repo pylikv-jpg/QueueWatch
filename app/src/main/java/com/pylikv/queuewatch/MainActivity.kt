@@ -54,13 +54,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pylikv.queuewatch.forecast.ForecastConfidence
 import com.pylikv.queuewatch.forecast.ForecastSessionStore
+import com.pylikv.queuewatch.forecast.formatCallWindow
 import com.pylikv.queuewatch.forecast.formatConfidence
 import com.pylikv.queuewatch.forecast.formatEtaMinutes
 import com.pylikv.queuewatch.forecast.formatForecastSpeed
+import com.pylikv.queuewatch.forecast.SharedPreferencesForecastStorage
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 
 class MainActivity : ComponentActivity() {
@@ -1608,6 +1611,8 @@ internal fun TrackingScreen(
     }
 
 
+    var trackingEvidence by remember { mutableStateOf<TrackingEvidence?>(null) }
+
     var trackingStartPosition by remember {
         mutableStateOf<Int?>(null)
     }
@@ -1620,6 +1625,10 @@ internal fun TrackingScreen(
         mutableStateOf(0L)
     }
 
+
+    var shadowLowMinutes by remember { mutableStateOf<Double?>(null) }
+    var shadowHighMinutes by remember { mutableStateOf<Double?>(null) }
+    var shadowUpdatedAt by remember { mutableStateOf<Long?>(null) }
 
     var forecastEtaMinutes by remember {
         mutableStateOf<Double?>(null)
@@ -1737,6 +1746,9 @@ internal fun TrackingScreen(
                 if (
                     forecastSessionMatches
                 ) {
+                    shadowLowMinutes = preferences.getString("forecast_shadow_low_minutes", null)?.toDoubleOrNull()
+                    shadowHighMinutes = preferences.getString("forecast_shadow_high_minutes", null)?.toDoubleOrNull()
+                    shadowUpdatedAt = preferences.getString("forecast_shadow_at", null)?.toLongOrNull()
                     forecastEtaMinutes =
                         preferences.getString(
                             ForecastSessionStore.KEY_ETA_MINUTES,
@@ -1785,6 +1797,9 @@ internal fun TrackingScreen(
                         )
                             ?.toLongOrNull()
                 } else {
+                    shadowLowMinutes = null
+                    shadowHighMinutes = null
+                    shadowUpdatedAt = null
                     forecastEtaMinutes = null
                     forecastLowMinutes = null
                     forecastHighMinutes = null
@@ -1797,70 +1812,14 @@ internal fun TrackingScreen(
 
             val movementSessionId =
                 carNumber.trim().uppercase() + "|" + checkpointName.trim().uppercase()
-
-            val savedMovementSessionId =
-                preferences.getString(
-                    "movement_session_id",
-                    ""
-                ) ?: ""
-
-            if (
-                vehicleState == "IN_QUEUE" &&
-                position != null &&
-                position!! > 0
-            ) {
-                if (savedMovementSessionId != movementSessionId) {
-                    val now = System.currentTimeMillis()
-                    preferences.edit()
-                        .putString("movement_session_id", movementSessionId)
-                        .putInt("movement_start_position", position!!)
-                        .putLong("movement_start_time", now)
-                        .apply()
-
-                    trackingStartPosition = position
-                    trackingStartTime = now
-                    movementElapsedMs = 0L
-                } else {
-                    trackingStartPosition =
-                        if (preferences.contains("movement_start_position")) {
-                            preferences.getInt("movement_start_position", 0)
-                        } else {
-                            null
-                        }
-
-                    trackingStartTime =
-                        if (preferences.contains("movement_start_time")) {
-                            preferences.getLong("movement_start_time", 0L)
-                        } else {
-                            null
-                        }
-
-                    movementElapsedMs =
-                        trackingStartTime?.let { start ->
-                            (System.currentTimeMillis() - start).coerceAtLeast(0L)
-                        } ?: 0L
-                }
-            } else if (savedMovementSessionId == movementSessionId) {
-                trackingStartPosition =
-                    if (preferences.contains("movement_start_position")) {
-                        preferences.getInt("movement_start_position", 0)
-                    } else {
-                        null
-                    }
-
-                trackingStartTime =
-                    if (preferences.contains("movement_start_time")) {
-                        preferences.getLong("movement_start_time", 0L)
-                    } else {
-                        null
-                    }
-
-                movementElapsedMs =
-                    trackingStartTime?.let { start ->
-                        (System.currentTimeMillis() - start).coerceAtLeast(0L)
-                    } ?: 0L
-            }
-
+            // movement_session_id is now owned by the service evidence store.
+            trackingEvidence = TrackingEvidenceStore(SharedPreferencesForecastStorage(preferences)).read(movementSessionId)
+            trackingStartPosition = trackingEvidence?.firstPosition
+            trackingStartTime = trackingEvidence?.firstAt
+            movementElapsedMs = trackingEvidence?.elapsedMillis ?: 0L
+            vehicleState = displayedTrackingState(vehicleState, trackingEvidence, System.currentTimeMillis())
+            if (vehicleState != "IN_QUEUE") position = null
+            if (vehicleState == "SOURCE_ERROR" || vehicleState == "STALE") queueCount = null
 
             val serviceAlertActive =
                 preferences.getBoolean(
@@ -1992,7 +1951,7 @@ internal fun TrackingScreen(
             "CALLED" ->
                 RedColor
 
-            "UNKNOWN" ->
+            "UNKNOWN", "MISSING", "SOURCE_ERROR", "STALE" ->
                 YellowColor
 
             else ->
@@ -2000,15 +1959,7 @@ internal fun TrackingScreen(
         }
 
 
-    val positionsPassed =
-        if (
-            trackingStartPosition != null &&
-            position != null
-        ) {
-            (trackingStartPosition!! - position!!).coerceAtLeast(0)
-        } else {
-            null
-        }
+    val positionsPassed = trackingEvidence?.positionsPassed
 
     val positionsToCall =
         when {
@@ -2053,8 +2004,10 @@ internal fun TrackingScreen(
             "CALLED" ->
                 "●  ВЫЗВАН НА КПП"
 
-            "UNKNOWN" ->
-                "●  СОСТОЯНИЕ НЕ ОПРЕДЕЛЕНО"
+            "MISSING" -> "●  НОМЕРА НЕТ В СПИСКЕ"
+            "SOURCE_ERROR" -> "●  НЕТ СВЕЖИХ ДАННЫХ"
+            "STALE" -> "●  ДАННЫЕ УСТАРЕЛИ"
+            "UNKNOWN" -> "●  СОСТОЯНИЕ НЕ ОПРЕДЕЛЕНО"
 
             else ->
                 "●  ПОИСК АВТОМОБИЛЯ"
@@ -2326,6 +2279,15 @@ internal fun TrackingScreen(
                ШКАЛА ДО ВЫЗОВА
                ------------------------------------------------ */
 
+            if (vehicleState != "IN_QUEUE" && trackingEvidence != null) {
+                val last = trackingEvidence!!
+                val lastTime = SimpleDateFormat("d MMM yyyy, HH:mm", Locale("ru")).apply {
+                    timeZone = TimeZone.getTimeZone("Europe/Minsk")
+                }.format(Date(last.lastAt))
+                Text("Последняя подтверждённая позиция: ${last.lastPosition}\n$lastTime по Минску", color = SecondaryTextColor, fontSize = 13.sp)
+                Spacer(Modifier.height(14.dp))
+            }
+
             if (
                 vehicleState == "IN_QUEUE" ||
                 vehicleState == "CALLED"
@@ -2541,214 +2503,27 @@ internal fun TrackingScreen(
             }
 
 
-            if (
-                forecastEnabled &&
-                vehicleState ==
-                    "IN_QUEUE"
-            ) {
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(
-                            RoundedCornerShape(
-                                18.dp
-                            )
-                        )
-                        .background(
-                            SecondaryPanelColor
-                        )
-                        .padding(
-                            16.dp
-                        )
-                ) {
-
-                    Column(
-                        modifier =
-                            Modifier.fillMaxWidth()
-                    ) {
-
-                        Text(
-                            text =
-                                "ПРОГНОЗ ДО ВЫЗОВА",
-
-                            color =
-                                SecondaryTextColor,
-
-                            fontSize =
-                                12.sp,
-
-                            fontWeight =
-                                FontWeight.SemiBold
-                        )
-
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(
-                                    8.dp
-                                )
-                        )
-
-
-                        if (
-                            forecastEtaMinutes != null &&
-                            forecastLowMinutes != null &&
-                            forecastHighMinutes != null &&
-                            forecastConfidence != null &&
-                            forecastEffectiveSpeed != null &&
-                            forecastUpdatedAtMillis?.let {
-                                System.currentTimeMillis() - it in 0L..120_000L
-                            } == true
-                        ) {
-
-                            Text(
-                                text =
-                                    "Ориентировочно ${formatEtaMinutes(forecastEtaMinutes!!)}",
-
-                                color =
-                                    MainTextColor,
-
-                                fontSize =
-                                    22.sp,
-
-                                fontWeight =
-                                    FontWeight.Bold
-                            )
-
-
-                            Spacer(
-                                modifier =
-                                    Modifier.height(
-                                        6.dp
-                                    )
-                            )
-
-
-                            Text(
-                                text =
-                                    "Диапазон: ${formatEtaMinutes(forecastLowMinutes!!)} – ${formatEtaMinutes(forecastHighMinutes!!)}",
-
-                                color =
-                                    SecondaryTextColor,
-
-                                fontSize =
-                                    13.sp
-                            )
-
-
-                            Spacer(
-                                modifier =
-                                    Modifier.height(
-                                        4.dp
-                                    )
-                            )
-
-
-                            Text(
-                                text =
-                                    "Надёжность: ${formatConfidence(forecastConfidence!!)}",
-
-                                color =
-                                    SecondaryTextColor,
-
-                                fontSize =
-                                    13.sp
-                            )
-
-
-                            Spacer(
-                                modifier =
-                                    Modifier.height(
-                                        4.dp
-                                    )
-                            )
-
-
-                            Text(
-                                text =
-                                    "Скорость очереди: ${formatForecastSpeed(forecastEffectiveSpeed!!)}",
-
-                                color =
-                                    SecondaryTextColor,
-
-                                fontSize =
-                                    13.sp
-                            )
-
-
-                            Spacer(
-                                modifier =
-                                    Modifier.height(
-                                        4.dp
-                                    )
-                            )
-
-
-                            Text(
-                                text =
-                                    "Обновлено: $forecastUpdatedText",
-
-                                color =
-                                    SecondaryTextColor,
-
-                                fontSize =
-                                    12.sp
-                            )
-
-                        } else {
-
-                            Text(
-                                text =
-                                    if (position == 1) "Вы первый в очереди. Время вызова пока неизвестно."
-                                    else "Недостаточно данных для надёжного прогноза",
-
-                                color =
-                                    SecondaryTextColor,
-
-                                fontSize =
-                                    14.sp,
-
-                                fontWeight =
-                                    FontWeight.Medium
-                            )
-                        }
-
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(
-                                    8.dp
-                                )
-                        )
-
-
-                        Text(
-                            text =
-                                "Экспериментальный прогноз. Для проверки точности отправляются " +
-                                    "позиции, прогнозы и время вызова. Номер автомобиля не отправляется.",
-
-                            color =
-                                YellowColor,
-
-                            fontSize =
-                                11.sp,
-
-                            fontWeight =
-                                FontWeight.SemiBold
-                        )
-                    }
+            if (forecastEnabled && vehicleState == "IN_QUEUE") {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                    .background(SecondaryPanelColor).padding(16.dp)) {
+                    Text("ОЖИДАЕМЫЙ ВЫЗОВ", color = SecondaryTextColor, fontSize = 12.sp)
+                    Text("Дата и время по Минску", color = SecondaryTextColor, fontSize = 12.sp)
+                    Spacer(Modifier.height(18.dp))
+                    Text("Основной прогноз", color = MainTextColor, fontWeight = FontWeight.SemiBold)
+                    Text(formatCallWindow(forecastUpdatedAtMillis, forecastLowMinutes, forecastHighMinutes, System.currentTimeMillis()),
+                        color = MainTextColor, fontSize = 15.sp)
+                    Spacer(Modifier.height(18.dp))
+                    Text("Экспериментальный прогноз", color = MainTextColor, fontWeight = FontWeight.SemiBold)
+                    Text(formatCallWindow(shadowUpdatedAt, shadowLowMinutes, shadowHighMinutes, System.currentTimeMillis()),
+                        color = MainTextColor, fontSize = 15.sp)
+                    Spacer(Modifier.height(18.dp))
+                    Text("Интервалы ориентировочные, их точность проверяется. Для второго расчёта нужен час наблюдения с продвижением.",
+                        color = SecondaryTextColor, fontSize = 11.sp)
+                    Text("Для проверки сохраняются оба расчёта и фактический вызов. Номер автомобиля не отправляется.",
+                        color = SecondaryTextColor, fontSize = 11.sp)
                 }
-
-
-                Spacer(
-                    modifier =
-                        Modifier.height(
-                            14.dp
-                        )
-                )
+                Spacer(Modifier.height(14.dp))
             }
-
 
             /* ------------------------------------------------
                ИНФОРМАЦИЯ
@@ -2837,7 +2612,7 @@ internal fun TrackingScreen(
 
                         Text(
                             text =
-                                "ПОСЛЕДНЕЕ ОБНОВЛЕНИЕ",
+                                "ПРОВЕРКА ИСТОЧНИКА (МИНСК)",
 
                             color =
                                 SecondaryTextColor,
@@ -2890,7 +2665,7 @@ internal fun TrackingScreen(
 
                 Text(
                     text =
-                        message,
+                        if (vehicleState == "STALE") "Свежая позиция не подтверждена. Повторяем запрос к источнику." else message,
 
                     color =
                         SecondaryTextColor,
