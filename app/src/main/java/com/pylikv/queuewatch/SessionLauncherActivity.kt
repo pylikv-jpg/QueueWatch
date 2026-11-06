@@ -51,6 +51,9 @@ import kotlinx.coroutines.delay
  * the service is explicitly nudged to restore from SharedPreferences.
  */
 class SessionLauncherActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,10 +122,10 @@ private fun RestoredTrackingScreen() {
     var position by remember { mutableStateOf<Int?>(null) }
     var queueCount by remember { mutableStateOf<Int?>(null) }
     var state by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("Восстановление мониторинга…") }
+    var message by remember { mutableStateOf(L.text(R.string.restoring)) }
     var lastUpdate by remember { mutableStateOf("") }
     var alertVisible by remember { mutableStateOf(false) }
-    var alertTitle by remember { mutableStateOf("Оповещение QueueWatch") }
+    var alertTitle by remember { mutableStateOf(L.text(R.string.app_alert)) }
     var alertMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -144,10 +147,16 @@ private fun RestoredTrackingScreen() {
             }
 
             state = prefs.getString(QueueWatchService.KEY_STATE, "").orEmpty()
+            val evidence = TrackingEvidenceStore(com.pylikv.queuewatch.forecast.SharedPreferencesForecastStorage(prefs))
+                .read(carNumber.trim().uppercase() + "|" + checkpoint.trim().uppercase())
+            state = displayedTrackingState(state, evidence, System.currentTimeMillis())
+            if (state != "IN_QUEUE") position = null
+            if (state in setOf("SOURCE_ERROR", "STALE")) queueCount = null
             message = prefs.getString(
                 QueueWatchService.KEY_MESSAGE,
-                "Восстановление мониторинга…"
+                L.text(R.string.restoring)
             ).orEmpty()
+            message = L.stored(message)
             lastUpdate = prefs.getString(QueueWatchService.KEY_LAST_UPDATE, "").orEmpty()
 
             val serviceAlertActive = prefs.getBoolean(
@@ -157,12 +166,14 @@ private fun RestoredTrackingScreen() {
             if (serviceAlertActive) {
                 alertTitle = prefs.getString(
                     QueueWatchService.KEY_ALERT_TITLE,
-                    "Оповещение QueueWatch"
+                    L.text(R.string.app_alert)
                 ).orEmpty()
                 alertMessage = prefs.getString(
                     QueueWatchService.KEY_ALERT_MESSAGE,
                     ""
                 ).orEmpty()
+                alertTitle = L.stored(alertTitle)
+                alertMessage = L.stored(alertMessage)
                 alertVisible = alertMessage.isNotBlank()
             }
 
@@ -195,7 +206,7 @@ private fun RestoredTrackingScreen() {
                         alertVisible = false
                     }
                 ) {
-                    Text("ПОДТВЕРДИТЬ")
+                    Text(L.text(R.string.acknowledge))
                 }
             }
         )
@@ -204,15 +215,18 @@ private fun RestoredTrackingScreen() {
     val statusColor = when (state) {
         "IN_QUEUE" -> RestoredGreen
         "CALLED" -> RestoredRed
-        "UNKNOWN" -> RestoredYellow
+        "UNKNOWN", "MISSING", "SOURCE_ERROR", "STALE" -> RestoredYellow
         else -> RestoredBlue
     }
 
     val statusText = when (state) {
-        "IN_QUEUE" -> "●  ЖИВАЯ ОЧЕРЕДЬ"
-        "CALLED" -> "●  ВЫЗВАН НА КПП"
-        "UNKNOWN" -> "●  СОСТОЯНИЕ НЕ ОПРЕДЕЛЕНО"
-        else -> "●  ВОССТАНОВЛЕНИЕ / ПОИСК"
+        "IN_QUEUE" -> L.text(R.string.status_in_queue)
+        "CALLED" -> L.text(R.string.status_called)
+        "MISSING" -> L.text(R.string.status_missing)
+        "SOURCE_ERROR" -> L.text(R.string.status_source_error)
+        "STALE" -> L.text(R.string.status_stale)
+        "UNKNOWN" -> L.text(R.string.status_unknown)
+        else -> L.text(R.string.status_restoring)
     }
 
     MaterialTheme {
@@ -255,7 +269,7 @@ private fun RestoredTrackingScreen() {
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = checkpoint.uppercase(),
+                            text = L.checkpoint(checkpoint).uppercase(L.locale()),
                             color = RestoredSecondary,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium,
@@ -276,7 +290,7 @@ private fun RestoredTrackingScreen() {
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            "ТЕКУЩАЯ ПОЗИЦИЯ",
+                            L.text(R.string.current_position),
                             color = RestoredSecondary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
@@ -313,7 +327,7 @@ private fun RestoredTrackingScreen() {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                "МАШИН В ОЧЕРЕДИ",
+                                L.text(R.string.queue_count),
                                 color = RestoredSecondary,
                                 fontSize = 12.sp
                             )
@@ -332,7 +346,7 @@ private fun RestoredTrackingScreen() {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                "ПОСЛЕДНЕЕ ОБНОВЛЕНИЕ",
+                                L.text(R.string.last_update),
                                 color = RestoredSecondary,
                                 fontSize = 12.sp
                             )
@@ -359,7 +373,7 @@ private fun RestoredTrackingScreen() {
                 Spacer(Modifier.height(18.dp))
 
                 Text(
-                    text = "●  ОТСЛЕЖИВАНИЕ АКТИВНО",
+                    text = L.text(R.string.tracking_active),
                     color = if (state == "UNKNOWN") RestoredYellow else RestoredGreen,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
@@ -367,6 +381,8 @@ private fun RestoredTrackingScreen() {
 
                 Spacer(Modifier.height(18.dp))
 
+                LanguageSelector()
+                Spacer(Modifier.height(14.dp))
                 ForecastAnalyticsControl()
                 Spacer(Modifier.height(14.dp))
 
@@ -397,7 +413,7 @@ private fun RestoredTrackingScreen() {
                     )
                 ) {
                     Text(
-                        "ОСТАНОВИТЬ ОТСЛЕЖИВАНИЕ",
+                        L.text(R.string.stop_tracking),
                         fontWeight = FontWeight.Bold
                     )
                 }

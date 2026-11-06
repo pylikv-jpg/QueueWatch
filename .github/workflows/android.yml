@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/languages-preview-20261106
       - fix/source-freshness-20261106
       - fix/forecast-source-freshness-20261106
       - fix/persistent-background-tracking
@@ -40,6 +41,9 @@ jobs:
 
       - name: Verify shipped tracking fixes
         run: python3 tools/verify_materialized_fixes.py
+
+      - name: Verify all locale resources and placeholders
+        run: python3 tools/verify_localization.py
 
       - name: Test forecast calculations and analytics consent
         run: gradle testDebugUnitTest

@@ -46,6 +46,7 @@ class QueueWatchService : Service() {
         const val EXTRA_FORECAST_MINUTES = "forecast_minutes"
         const val EXTRA_CALLED_ALERT_ENABLED = "called_alert_enabled"
 
+        const val ACTION_REFRESH_LANGUAGE = "com.pylikv.queuewatch.REFRESH_LANGUAGE"
         const val ACTION_ACKNOWLEDGE_ALERT = "com.pylikv.queuewatch.ACKNOWLEDGE_ALERT"
         const val ACTION_STOP_TRACKING = "com.pylikv.queuewatch.STOP_TRACKING"
 
@@ -108,7 +109,7 @@ class QueueWatchService : Service() {
         // monitoring loop starts.
         startForeground(
             NOTIFICATION_ID,
-            createServiceNotification("QueueWatch: восстановление мониторинга…")
+            createServiceNotification(L.text(R.string.monitoring_restoring))
         )
 
         try {
@@ -128,6 +129,21 @@ class QueueWatchService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            ACTION_REFRESH_LANGUAGE -> {
+                createNotificationChannels()
+                val session = loadSavedSession()
+                if (session == null) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                if (monitoringJob?.isActive != true) startMonitoring(session)
+                session.let {
+                    updateServiceNotification(L.text(R.string.tracking_notification,
+                        session.carNumber, L.checkpoint(session.checkpoint)))
+                }
+                return START_STICKY
+            }
             ACTION_ACKNOWLEDGE_ALERT -> {
                 acknowledgeAlert()
                 return START_STICKY
@@ -277,12 +293,12 @@ class QueueWatchService : Service() {
 
         val checkpointId = checkpointId(session.checkpoint)
         if (checkpointId == null) {
-            saveMessage("Неизвестный пункт пропуска.")
+            saveMessage(L.text(R.string.unknown_checkpoint))
             return
         }
 
         updateServiceNotification(
-            "${session.carNumber} • ${session.checkpoint} • отслеживание активно"
+            L.text(R.string.tracking_notification, session.carNumber, L.checkpoint(session.checkpoint))
         )
 
         while (preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {
@@ -310,9 +326,8 @@ class QueueWatchService : Service() {
                                 saveState(if (vehicleWasConfirmed) "MISSING" else "", null)
                                 preferences.edit().remove(KEY_QUEUE_COUNT).apply()
                                 saveMessage(if (vehicleWasConfirmed)
-                                    "Автомобиль отсутствует в полученном списке. Вызов не подтверждён. " +
-                                        "Проверьте официальный сайт. Мониторинг продолжается."
-                                    else "Автомобиль пока не обнаружен.")
+                                    L.text(R.string.vehicle_missing)
+                                    else L.text(R.string.vehicle_not_found))
                             }
                         } else {
                             vehicleWasConfirmed = true
@@ -364,8 +379,7 @@ class QueueWatchService : Service() {
                                                 triggerAlert(
                                                     type = AlertType.POSITION,
                                                     message =
-                                                        "Автомобиль достиг позиции " +
-                                                            "${session.positionThreshold} или меньше.",
+                                                        L.text(R.string.position_reached, session.positionThreshold),
                                                     eventId = buildEventId(
                                                         session.checkpoint,
                                                         session.carNumber,
@@ -377,12 +391,12 @@ class QueueWatchService : Service() {
                                     }
 
                                     previousPosition = currentPosition
-                                    saveMessage("Автомобиль находится в живой очереди.")
+                                    saveMessage(L.text(R.string.vehicle_in_queue))
                                 }
 
                                 VehicleState.CALLED -> {
                                     saveState("CALLED", null)
-                                    saveMessage("Автомобиль вызван в пункт пропуска.")
+                                    saveMessage(L.text(R.string.vehicle_called))
 
                                     val eventId = buildEventId(
                                         session.checkpoint,
@@ -398,7 +412,7 @@ class QueueWatchService : Service() {
                                         calledAlertTriggered = true
                                         triggerAlert(
                                             type = AlertType.CALLED,
-                                            message = "Автомобиль вызван в пункт пропуска.",
+                                            message = L.text(R.string.vehicle_called),
                                             eventId = eventId
                                         )
                                     }
@@ -412,8 +426,7 @@ class QueueWatchService : Service() {
                                 VehicleState.UNKNOWN -> {
                                     saveState("UNKNOWN", null)
                                     saveMessage(
-                                        "Автомобиль найден, но сервер не дал " +
-                                            "однозначного состояния."
+                                        L.text(R.string.vehicle_unknown)
                                     )
                                 }
                             }
@@ -422,7 +435,7 @@ class QueueWatchService : Service() {
                     onFailure = {
                         runCatching { analytics.sourceError(session.carNumber, checkpointId) }
                         saveUnconfirmedSource()
-                        saveMessage("Не удалось подтвердить свежие данные очереди. Повторяем запрос…")
+                        saveMessage(L.text(R.string.source_unconfirmed))
                     }
                 )
             } catch (cancelled: CancellationException) {
@@ -430,7 +443,7 @@ class QueueWatchService : Service() {
             } catch (_: Exception) {
                 runCatching { analytics.sourceError(session.carNumber, checkpointId) }
                 saveUnconfirmedSource()
-                saveMessage("Временная ошибка источника. Мониторинг продолжается.")
+                saveMessage(L.text(R.string.source_temporary_error))
             }
 
             if (alertManager?.activeAlert == null) {
@@ -439,7 +452,7 @@ class QueueWatchService : Service() {
             }
 
             updateServiceNotification(
-                "${session.carNumber} • ${session.checkpoint} • отслеживание активно"
+                L.text(R.string.tracking_notification, session.carNumber, L.checkpoint(session.checkpoint))
             )
 
             scope.launch { runCatching { analytics.flush { isActive } } }
@@ -478,9 +491,9 @@ class QueueWatchService : Service() {
         if (alertManager?.activeAlert != null) return
 
         val title = when (type) {
-            AlertType.POSITION -> "Оповещение по очереди"
-            AlertType.FORECAST -> "Оповещение о приближении вызова"
-            AlertType.CALLED -> "ВНИМАНИЕ: ВЫЗОВ"
+            AlertType.POSITION -> L.text(R.string.position_alert_title)
+            AlertType.FORECAST -> L.text(R.string.forecast_alert_title)
+            AlertType.CALLED -> L.text(R.string.called_alert_title)
         }
 
         preferences.edit()
@@ -591,7 +604,7 @@ class QueueWatchService : Service() {
     }
 
     private fun saveLastUpdate() {
-        val formatter = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).apply { timeZone = java.util.TimeZone.getTimeZone("Europe/Minsk") }
+        val formatter = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", L.locale()).apply { timeZone = java.util.TimeZone.getTimeZone("Europe/Minsk") }
         preferences.edit()
             .putString(KEY_LAST_UPDATE, formatter.format(Date()))
             .apply()
@@ -602,19 +615,19 @@ class QueueWatchService : Service() {
 
         val monitoringChannel = NotificationChannel(
             MONITORING_CHANNEL_ID,
-            "QueueWatch — мониторинг",
+            L.text(R.string.monitoring_channel),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Постоянный мониторинг выбранного автомобиля в электронной очереди"
+            description = L.text(R.string.monitoring_channel_description)
         }
         manager.createNotificationChannel(monitoringChannel)
 
         val alertChannel = NotificationChannel(
             ALERT_CHANNEL_ID,
-            "QueueWatch — важные оповещения",
+            L.text(R.string.alerts_channel),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Вызов автомобиля и достижение заданной позиции"
+            description = L.text(R.string.alerts_channel_description)
             enableVibration(true)
             vibrationPattern = longArrayOf(0, 300, 180, 300, 180, 500)
             setSound(null, null)
@@ -653,7 +666,7 @@ class QueueWatchService : Service() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
-                "ОСТАНОВИТЬ",
+                L.text(R.string.stop),
                 stopPendingIntent
             )
             .build()
@@ -689,8 +702,8 @@ class QueueWatchService : Service() {
 
         val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle(title)
-            .setContentText(message)
+            .setContentTitle(L.stored(title))
+            .setContentText(L.stored(message))
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setContentIntent(openPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -700,7 +713,7 @@ class QueueWatchService : Service() {
             .setOngoing(true)
             .addAction(
                 android.R.drawable.ic_menu_save,
-                "ПОДТВЕРДИТЬ",
+                L.text(R.string.acknowledge),
                 acknowledgePendingIntent
             )
             .build()
