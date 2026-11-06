@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">QueueWatch</string>
     <string name="queue_title">ELEKTROONILINE JÄRJEKORD</string>
     <string name="queue_subtitle">Sõiduki jälgimine piiripunktis</string>
     <string name="vehicle">SÕIDUK</string>

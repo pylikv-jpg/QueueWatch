@@ -10,7 +10,9 @@ for lang in langs:
  values={x.attrib['name']:''.join(x.itertext()) for x in entries}
  assert len(values)==len(entries),f'duplicate key: {lang}'
  assert all(value.strip() for value in values.values()),f'empty string: {lang}'
- resources[lang]=values
+ if lang=='en': assert values.get('app_name')=='QueueWatch'
+ else: assert 'app_name' not in values, 'Preview label must inherit its build-type override'
+ resources[lang]={key:value for key,value in values.items() if key!='app_name'}
 base=resources['en']
 for lang,values in resources.items():
  assert values.keys()==base.keys(),f'missing/extra keys: {lang}'

@@ -13,6 +13,7 @@ class QueueWatchApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         L.initialize(this)
+        AppLanguage.migrateLegacySelection(this)
     }
 }
 
@@ -23,6 +24,16 @@ object AppLanguage {
     fun selected(context: Context): String = if (Build.VERSION.SDK_INT >= 33) {
         context.getSystemService(LocaleManager::class.java).applicationLocales.toLanguageTags()
     } else context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "").orEmpty()
+
+    fun migrateLegacySelection(context: Context) {
+        if (Build.VERSION.SDK_INT < 33) return
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!preferences.contains(KEY)) return
+        val manager = context.getSystemService(LocaleManager::class.java)
+        LanguageChoice.legacyChoiceToMigrate(manager.applicationLocales.toLanguageTags(),
+            preferences.getString(KEY, null))?.let { manager.applicationLocales = LocaleList.forLanguageTags(it) }
+        preferences.edit().remove(KEY).commit()
+    }
 
     fun locale(context: Context): Locale {
         val device = Resources.getSystem().configuration.locales[0]?.toLanguageTag()

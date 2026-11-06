@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">QueueWatch</string>
     <string name="queue_title">ЭЛЕКТРОННАЯ ОЧЕРЕДЬ</string>
     <string name="queue_subtitle">Мониторинг автомобиля на пункте пропуска</string>
     <string name="vehicle">АВТОМОБИЛЬ</string>

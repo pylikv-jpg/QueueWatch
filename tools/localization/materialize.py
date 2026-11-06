@@ -9,7 +9,8 @@ assert all(len(row)==10 for row in rows)
 lookup={r[1]:r[0] for r in rows}
 for language in LANGS:
  folder=ROOT/'app/src/main/res'/('values' if language=='en' else 'values-'+language);folder.mkdir(parents=True,exist_ok=True)
- values=['<?xml version="1.0" encoding="utf-8"?>','<resources>','    <string name="app_name" translatable="false">QueueWatch</string>']
+ values=['<?xml version="1.0" encoding="utf-8"?>','<resources>']
+ if language=='en': values.append('    <string name="app_name" translatable="false">QueueWatch</string>')
  for row in rows:
   value=escape(row[1+LANGS.index(language)]).replace("'","\\'")
   values.append(f'    <string name="{row[0]}">{value}</string>')
