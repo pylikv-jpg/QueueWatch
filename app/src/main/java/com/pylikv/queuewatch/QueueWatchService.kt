@@ -193,6 +193,13 @@ class QueueWatchService : Service() {
     }
 
     private fun saveSession(session: TrackingSession) {
+        val sameVehicle = preferences.getString(KEY_CAR_NUMBER, null) == session.carNumber &&
+            preferences.getString(KEY_CHECKPOINT, null) == session.checkpoint
+        if (!sameVehicle) {
+            TrackingEvidenceStore(SharedPreferencesForecastStorage(preferences)).reset()
+            preferences.edit().remove(KEY_STATE).remove(KEY_POSITION).remove(KEY_QUEUE_COUNT)
+                .remove(KEY_LAST_UPDATE).remove(KEY_MESSAGE).commit()
+        }
         // commit() is deliberate here: the session must be durable before the
         // UI can disappear or Android can kill the process.
         preferences.edit()

@@ -53,6 +53,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pylikv.queuewatch.forecast.SharedPreferencesForecastStorage
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import kotlinx.coroutines.delay
 
 
@@ -2119,7 +2123,7 @@ private fun TrackingScreen(
             if (vehicleState != "IN_QUEUE" && trackingEvidence != null) {
                 val last = trackingEvidence!!
                 val lastTime = SimpleDateFormat("d MMM yyyy, HH:mm", Locale("ru")).apply {
-                    timeZone = java.util.TimeZone.getTimeZone("Europe/Minsk")
+                    timeZone = TimeZone.getTimeZone("Europe/Minsk")
                 }.format(Date(last.lastAt))
                 Text("Последняя подтверждённая позиция: ${last.lastPosition}\n$lastTime по Минску", color = SecondaryTextColor, fontSize = 13.sp)
                 Spacer(Modifier.height(14.dp))
