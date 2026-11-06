@@ -172,7 +172,7 @@ class QueueAnalyzer(
     ): String {
 
         return value
-            .uppercase()
+            .uppercase(java.util.Locale.ROOT)
             .replace("\\s".toRegex(), "")
             .replace("-", "")
             .trim()

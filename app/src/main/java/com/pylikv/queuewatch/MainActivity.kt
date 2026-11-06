@@ -481,7 +481,7 @@ private fun SetupScreen(
                         onValueChange = {
 
                             onCarNumberChange(
-                                it.uppercase()
+                                it.uppercase(java.util.Locale.ROOT)
                             )
                         },
 
@@ -1676,7 +1676,7 @@ private fun TrackingScreen(
 
 
             val movementSessionId =
-                carNumber.trim().uppercase() + "|" + checkpointName.trim().uppercase()
+                carNumber.trim().uppercase(java.util.Locale.ROOT) + "|" + checkpointName.trim().uppercase(java.util.Locale.ROOT)
             // movement_session_id is now owned by the service evidence store.
             trackingEvidence = TrackingEvidenceStore(SharedPreferencesForecastStorage(preferences)).read(movementSessionId)
             trackingStartPosition = trackingEvidence?.firstPosition
@@ -1971,7 +1971,7 @@ private fun TrackingScreen(
 
                     Text(
                         text =
-                            carNumber.uppercase(),
+                            carNumber.uppercase(java.util.Locale.ROOT),
 
                         color =
                             MainTextColor,

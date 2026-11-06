@@ -142,6 +142,7 @@ class QueueWatchService : Service() {
                     updateServiceNotification(L.text(R.string.tracking_notification,
                         session.carNumber, L.checkpoint(session.checkpoint)))
                 }
+                alertManager?.activeAlert?.let { showAlertNotification(it.title, it.message) }
                 return START_STICKY
             }
             ACTION_ACKNOWLEDGE_ALERT -> {
@@ -181,7 +182,7 @@ class QueueWatchService : Service() {
     private fun readSessionFromIntent(intent: Intent): TrackingSession? {
         val carNumber = intent.getStringExtra(EXTRA_CAR_NUMBER)
             ?.trim()
-            ?.uppercase()
+            ?.uppercase(java.util.Locale.ROOT)
             ?.takeIf { it.isNotBlank() }
             ?: return null
 
@@ -271,7 +272,7 @@ class QueueWatchService : Service() {
         val analyzer = QueueAnalyzer(applicationContext)
         analyzer.reset()
         val evidenceStore = TrackingEvidenceStore(SharedPreferencesForecastStorage(preferences))
-        val evidenceScope = session.carNumber.trim().uppercase() + "|" + session.checkpoint.trim().uppercase()
+        val evidenceScope = session.carNumber.trim().uppercase(java.util.Locale.ROOT) + "|" + session.checkpoint.trim().uppercase(java.util.Locale.ROOT)
         // Discard stale display immediately on upgrade/restart. Only a new
         // successful observation may restore the green live state.
         if (preferences.getString(KEY_STATE, "") == "IN_QUEUE" &&
@@ -475,7 +476,7 @@ class QueueWatchService : Service() {
         checkpoint: String,
         carNumber: String,
         type: AlertType
-    ): String = "$checkpoint|${carNumber.uppercase()}|${type.name}"
+    ): String = "$checkpoint|${carNumber.uppercase(java.util.Locale.ROOT)}|${type.name}"
 
     private fun isAcknowledged(eventId: String): Boolean =
         preferences.getString(KEY_ACKNOWLEDGED_EVENT_ID, null) == eventId
@@ -704,7 +705,7 @@ class QueueWatchService : Service() {
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle(L.stored(title))
             .setContentText(L.stored(message))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(L.stored(message)))
             .setContentIntent(openPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

@@ -148,7 +148,7 @@ private fun RestoredTrackingScreen() {
 
             state = prefs.getString(QueueWatchService.KEY_STATE, "").orEmpty()
             val evidence = TrackingEvidenceStore(com.pylikv.queuewatch.forecast.SharedPreferencesForecastStorage(prefs))
-                .read(carNumber.trim().uppercase() + "|" + checkpoint.trim().uppercase())
+                .read(carNumber.trim().uppercase(java.util.Locale.ROOT) + "|" + checkpoint.trim().uppercase(java.util.Locale.ROOT))
             state = displayedTrackingState(state, evidence, System.currentTimeMillis())
             if (state != "IN_QUEUE") position = null
             if (state in setOf("SOURCE_ERROR", "STALE")) queueCount = null
@@ -261,7 +261,7 @@ private fun RestoredTrackingScreen() {
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = carNumber.uppercase(),
+                            text = carNumber.uppercase(java.util.Locale.ROOT),
                             color = RestoredText,
                             fontSize = 36.sp,
                             fontWeight = FontWeight.Bold,
