@@ -12,8 +12,8 @@ android {
         applicationId = "com.pylikv.queuewatch"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("queuewatchVersionCode").orElse("21").get().toInt()
-        versionName = "1.1.1"
+        versionCode = providers.gradleProperty("queuewatchVersionCode").orElse("22").get().toInt()
+        versionName = "1.1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+      - fix/source-freshness-20261106
+      - fix/forecast-source-freshness-20261106
       - fix/persistent-background-tracking
       - feature/play-forecast-analytics
 

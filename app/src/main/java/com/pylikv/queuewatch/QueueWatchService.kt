@@ -9,7 +9,11 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.os.PowerManager
+import com.pylikv.queuewatch.forecast.SharedPreferencesForecastStorage
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -243,6 +247,14 @@ class QueueWatchService : Service() {
         val api = QueueApi()
         val analyzer = QueueAnalyzer(applicationContext)
         analyzer.reset()
+        val evidenceStore = TrackingEvidenceStore(SharedPreferencesForecastStorage(preferences))
+        val evidenceScope = session.carNumber.trim().uppercase() + "|" + session.checkpoint.trim().uppercase()
+        // Discard stale display immediately on upgrade/restart. Only a new
+        // successful observation may restore the green live state.
+        if (preferences.getString(KEY_STATE, "") == "IN_QUEUE" &&
+            evidenceStore.read(evidenceScope)?.isFresh(System.currentTimeMillis()) != true) {
+            saveState("STALE", null)
+        }
 
         var previousPosition: Int? = if (preferences.contains(KEY_POSITION)) {
             preferences.getInt(KEY_POSITION, 0).takeIf { it > 0 }
@@ -268,7 +280,9 @@ class QueueWatchService : Service() {
 
         while (preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {
             try {
+                currentCoroutineContext().ensureActive()
                 val result = api.getMonitoring(checkpointId)
+                currentCoroutineContext().ensureActive()
 
                 result.fold(
                     onSuccess = { json ->
@@ -283,14 +297,15 @@ class QueueWatchService : Service() {
                         runCatching { analytics.snapshot(session.carNumber, checkpointId, vehicle, vehicles, analyzer) }
 
                         if (vehicle == null) {
-                            if (!vehicleWasConfirmed) {
-                                saveState("", null)
-                                saveMessage("Автомобиль пока не обнаружен.")
-                            } else {
-                                saveMessage(
-                                    "Данные автомобиля временно отсутствуют. " +
-                                        "Последняя подтверждённая позиция сохраняется."
-                                )
+                            // Absence is not an explicit call. Preserve historical
+                            // evidence separately, never as the current position.
+                            if (preferences.getString(KEY_STATE, "") != "CALLED") {
+                                saveState(if (vehicleWasConfirmed) "MISSING" else "", null)
+                                preferences.edit().remove(KEY_QUEUE_COUNT).apply()
+                                saveMessage(if (vehicleWasConfirmed)
+                                    "Автомобиль отсутствует в полученном списке. Вызов не подтверждён. " +
+                                        "Проверьте официальный сайт. Мониторинг продолжается."
+                                    else "Автомобиль пока не обнаружен.")
                             }
                         } else {
                             vehicleWasConfirmed = true
@@ -306,7 +321,12 @@ class QueueWatchService : Service() {
                             when (analyzer.determineState(vehicle)) {
                                 VehicleState.IN_QUEUE -> {
                                     val currentPosition = vehicle.position
-                                    saveState("IN_QUEUE", currentPosition)
+                                    if (currentPosition != null && currentPosition > 0) {
+                                        evidenceStore.observe(evidenceScope, currentPosition, System.currentTimeMillis())
+                                        saveState("IN_QUEUE", currentPosition)
+                                    } else {
+                                        saveState("UNKNOWN", null)
+                                    }
 
                                     if (currentPosition != null) {
                                         if (currentPosition > session.positionThreshold) {
@@ -394,12 +414,16 @@ class QueueWatchService : Service() {
                     },
                     onFailure = {
                         runCatching { analytics.sourceError(session.carNumber, checkpointId) }
-                        saveMessage("Ошибка получения данных. Повторяем попытку…")
+                        saveUnconfirmedSource()
+                        saveMessage("Не удалось подтвердить свежие данные очереди. Повторяем запрос…")
                     }
                 )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 runCatching { analytics.sourceError(session.carNumber, checkpointId) }
-                saveMessage("Временная ошибка. Мониторинг продолжается.")
+                saveUnconfirmedSource()
+                saveMessage("Временная ошибка источника. Мониторинг продолжается.")
             }
 
             if (alertManager?.activeAlert == null) {
@@ -495,6 +519,7 @@ class QueueWatchService : Service() {
     }
 
     private fun stopTrackingByUser() {
+        TrackingEvidenceStore(SharedPreferencesForecastStorage(preferences)).reset()
         // Only an explicit user stop clears the durable session. Android
         // destroying the service must never do this.
         preferences.edit()
@@ -545,6 +570,11 @@ class QueueWatchService : Service() {
         editor.apply()
     }
 
+    private fun saveUnconfirmedSource() {
+        if (preferences.getString(KEY_STATE, "") != "CALLED") saveState("SOURCE_ERROR", null)
+        preferences.edit().remove(KEY_QUEUE_COUNT).apply()
+    }
+
     private fun saveQueueCount(count: Int) {
         preferences.edit().putInt(KEY_QUEUE_COUNT, count).apply()
     }
@@ -554,7 +584,7 @@ class QueueWatchService : Service() {
     }
 
     private fun saveLastUpdate() {
-        val formatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        val formatter = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).apply { timeZone = java.util.TimeZone.getTimeZone("Europe/Minsk") }
         preferences.edit()
             .putString(KEY_LAST_UPDATE, formatter.format(Date()))
             .apply()

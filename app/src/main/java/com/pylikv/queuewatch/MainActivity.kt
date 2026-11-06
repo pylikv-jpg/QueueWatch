@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pylikv.queuewatch.forecast.SharedPreferencesForecastStorage
 import kotlinx.coroutines.delay
 
 
@@ -1588,6 +1589,8 @@ private fun TrackingScreen(
     }
 
 
+    var trackingEvidence by remember { mutableStateOf<TrackingEvidence?>(null) }
+
     var trackingStartPosition by remember {
         mutableStateOf<Int?>(null)
     }
@@ -1664,70 +1667,14 @@ private fun TrackingScreen(
 
             val movementSessionId =
                 carNumber.trim().uppercase() + "|" + checkpointName.trim().uppercase()
-
-            val savedMovementSessionId =
-                preferences.getString(
-                    "movement_session_id",
-                    ""
-                ) ?: ""
-
-            if (
-                vehicleState == "IN_QUEUE" &&
-                position != null &&
-                position!! > 0
-            ) {
-                if (savedMovementSessionId != movementSessionId) {
-                    val now = System.currentTimeMillis()
-                    preferences.edit()
-                        .putString("movement_session_id", movementSessionId)
-                        .putInt("movement_start_position", position!!)
-                        .putLong("movement_start_time", now)
-                        .apply()
-
-                    trackingStartPosition = position
-                    trackingStartTime = now
-                    movementElapsedMs = 0L
-                } else {
-                    trackingStartPosition =
-                        if (preferences.contains("movement_start_position")) {
-                            preferences.getInt("movement_start_position", 0)
-                        } else {
-                            null
-                        }
-
-                    trackingStartTime =
-                        if (preferences.contains("movement_start_time")) {
-                            preferences.getLong("movement_start_time", 0L)
-                        } else {
-                            null
-                        }
-
-                    movementElapsedMs =
-                        trackingStartTime?.let { start ->
-                            (System.currentTimeMillis() - start).coerceAtLeast(0L)
-                        } ?: 0L
-                }
-            } else if (savedMovementSessionId == movementSessionId) {
-                trackingStartPosition =
-                    if (preferences.contains("movement_start_position")) {
-                        preferences.getInt("movement_start_position", 0)
-                    } else {
-                        null
-                    }
-
-                trackingStartTime =
-                    if (preferences.contains("movement_start_time")) {
-                        preferences.getLong("movement_start_time", 0L)
-                    } else {
-                        null
-                    }
-
-                movementElapsedMs =
-                    trackingStartTime?.let { start ->
-                        (System.currentTimeMillis() - start).coerceAtLeast(0L)
-                    } ?: 0L
-            }
-
+            // movement_session_id is now owned by the service evidence store.
+            trackingEvidence = TrackingEvidenceStore(SharedPreferencesForecastStorage(preferences)).read(movementSessionId)
+            trackingStartPosition = trackingEvidence?.firstPosition
+            trackingStartTime = trackingEvidence?.firstAt
+            movementElapsedMs = trackingEvidence?.elapsedMillis ?: 0L
+            vehicleState = displayedTrackingState(vehicleState, trackingEvidence, System.currentTimeMillis())
+            if (vehicleState != "IN_QUEUE") position = null
+            if (vehicleState == "SOURCE_ERROR" || vehicleState == "STALE") queueCount = null
 
             val serviceAlertActive =
                 preferences.getBoolean(
@@ -1859,7 +1806,7 @@ private fun TrackingScreen(
             "CALLED" ->
                 RedColor
 
-            "UNKNOWN" ->
+            "UNKNOWN", "MISSING", "SOURCE_ERROR", "STALE" ->
                 YellowColor
 
             else ->
@@ -1867,15 +1814,7 @@ private fun TrackingScreen(
         }
 
 
-    val positionsPassed =
-        if (
-            trackingStartPosition != null &&
-            position != null
-        ) {
-            (trackingStartPosition!! - position!!).coerceAtLeast(0)
-        } else {
-            null
-        }
+    val positionsPassed = trackingEvidence?.positionsPassed
 
     val positionsToCall =
         when {
@@ -1905,8 +1844,10 @@ private fun TrackingScreen(
             "CALLED" ->
                 "●  ВЫЗВАН НА КПП"
 
-            "UNKNOWN" ->
-                "●  СОСТОЯНИЕ НЕ ОПРЕДЕЛЕНО"
+            "MISSING" -> "●  НОМЕРА НЕТ В СПИСКЕ"
+            "SOURCE_ERROR" -> "●  НЕТ СВЕЖИХ ДАННЫХ"
+            "STALE" -> "●  ДАННЫЕ УСТАРЕЛИ"
+            "UNKNOWN" -> "●  СОСТОЯНИЕ НЕ ОПРЕДЕЛЕНО"
 
             else ->
                 "●  ПОИСК АВТОМОБИЛЯ"
@@ -2174,6 +2115,15 @@ private fun TrackingScreen(
             /* ------------------------------------------------
                ШКАЛА ДО ВЫЗОВА
                ------------------------------------------------ */
+
+            if (vehicleState != "IN_QUEUE" && trackingEvidence != null) {
+                val last = trackingEvidence!!
+                val lastTime = SimpleDateFormat("d MMM yyyy, HH:mm", Locale("ru")).apply {
+                    timeZone = java.util.TimeZone.getTimeZone("Europe/Minsk")
+                }.format(Date(last.lastAt))
+                Text("Последняя подтверждённая позиция: ${last.lastPosition}\n$lastTime по Минску", color = SecondaryTextColor, fontSize = 13.sp)
+                Spacer(Modifier.height(14.dp))
+            }
 
             if (
                 vehicleState == "IN_QUEUE" ||
@@ -2477,7 +2427,7 @@ private fun TrackingScreen(
 
                         Text(
                             text =
-                                "ПОСЛЕДНЕЕ ОБНОВЛЕНИЕ",
+                                "ПРОВЕРКА ИСТОЧНИКА (МИНСК)",
 
                             color =
                                 SecondaryTextColor,
@@ -2530,7 +2480,7 @@ private fun TrackingScreen(
 
                 Text(
                     text =
-                        message,
+                        if (vehicleState == "STALE") "Свежая позиция не подтверждена. Повторяем запрос к источнику." else message,
 
                     color =
                         SecondaryTextColor,

@@ -8,6 +8,11 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.security.MessageDigest
+import java.security.SecureRandom
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import org.json.JSONObject
 
 /**
  * Сетевой слой QueueWatch.
@@ -87,6 +92,10 @@ class QueueApi(
                     "&checkpointId=$encodedCheckpoint"
             )
 
+            // Current official public-client protocol. The word is a small
+            // SHA-256 proof bound to this exact path, query and minute.
+            val word = createApiWord(url.file)
+
             connection = openConnection(url)
 
             connection.requestMethod = "GET"
@@ -108,13 +117,14 @@ class QueueApi(
             )
 
             connection.setRequestProperty("X-Api-Key", PUBLIC_CLIENT_KEY)
-            val tokenInput = (clock() / 60_000L).toString() + TOKEN_SUFFIX
+            val tokenInput = (word.substring(8, 21).toLong() / 60_000L).toString() + TOKEN_SUFFIX
             val requestToken = MessageDigest.getInstance("MD5")
                 .digest(tokenInput.toByteArray(Charsets.UTF_8))
                 .joinToString("") { byte ->
                     (byte.toInt() and 0xff).toString(16).padStart(2, '0')
                 }
             connection.setRequestProperty("X-Api-Token", requestToken)
+            connection.setRequestProperty("X-Api-Word", word)
 
             val responseCode =
                 connection.responseCode
@@ -162,9 +172,21 @@ class QueueApi(
 
             } else {
 
+                val root = JSONObject(body)
+                val queues = listOf("truckLiveQueue", "carLiveQueue", "busLiveQueue", "motorcycleLiveQueue")
+                check(queues.all { root.optJSONArray(it) != null }) {
+                    "Источник вернул неполные данные очереди."
+                }
+                // HTTP 200 plus empty arrays is also the source's rejection
+                // response. It cannot establish absence or an actual call.
+                check(root.keys().asSequence().any { (root.opt(it) as? org.json.JSONArray)?.length()?.let { n -> n > 0 } == true }) {
+                    "Источник вернул пустые списки. Состояние очереди не подтверждено."
+                }
                 Result.success(body)
             }
 
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
 
             Result.failure(e)
@@ -172,6 +194,24 @@ class QueueApi(
         } finally {
 
             connection?.disconnect()
+        }
+    }
+
+    private suspend fun createApiWord(path: String): String {
+        val random = SecureRandom()
+        val digest = MessageDigest.getInstance("SHA-256")
+        while (true) {
+            val at = clock()
+            val minute = at / 60_000L
+            val prefix = ByteArray(4).also(random::nextBytes)
+                .joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
+            var nonce = 0L
+            while (clock() / 60_000L == minute) {
+                if (nonce % 1024L == 0L) currentCoroutineContext().ensureActive()
+                val hash = digest.digest("$TOKEN_SUFFIX$minute$path$prefix$nonce".toByteArray(Charsets.UTF_8))
+                if (hash[0] == 0.toByte() && hash[1] == 0.toByte()) return "$prefix$at$nonce"
+                nonce++
+            }
         }
     }
 }

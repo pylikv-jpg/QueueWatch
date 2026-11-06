@@ -10,6 +10,7 @@ import java.net.ServerSocket
 import java.net.SocketException
 import java.net.URL
 import java.util.Locale
+import java.security.MessageDigest
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -83,7 +84,16 @@ class QueueApiTest {
                     } else {
                         "591eef17ac1da3cb4457629d8cff8196"
                     }
-                    val authorized = headers["x-api-key"] == PUBLIC_CLIENT_KEY &&
+                    val word = headers["x-api-word"].orEmpty()
+                    val wordPrefix = word.take(8)
+                    val wordAt = word.drop(8).take(13).toLongOrNull()
+                    val nonce = word.drop(21).toLongOrNull()
+                    val wordHash = if (wordAt != null && nonce != null) {
+                        MessageDigest.getInstance("SHA-256").digest(
+                            "SemenSemenych${wordAt / 60_000L}/info/monitoring-new?token=test&checkpointId=checkpoint$wordPrefix$nonce".toByteArray())
+                    } else null
+                    val authorized = wordHash?.get(0) == 0.toByte() && wordHash?.get(1) == 0.toByte() &&
+                        headers["x-api-key"] == PUBLIC_CLIENT_KEY &&
                         headers["x-api-token"] == expectedToken
                     // The source returns HTTP 200 and empty arrays for a
                     // request missing the official public-client headers.
