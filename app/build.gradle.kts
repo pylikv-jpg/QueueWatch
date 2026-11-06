@@ -12,8 +12,8 @@ android {
         applicationId = "com.pylikv.queuewatch"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("queuewatchVersionCode").orElse("22").get().toInt()
-        versionName = "1.1.2"
+        versionCode = providers.gradleProperty("queuewatchVersionCode").orElse("23").get().toInt()
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -39,6 +39,9 @@ android {
 
     buildTypes {
         debug {
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            resValue("string", "app_name", "QueueWatch Test")
             signingConfig = signingConfigs.getByName("debug")
         }
 
@@ -51,6 +54,9 @@ android {
             )
         }
     }
+
+    // Keep all supported languages available for immediate offline switching.
+    bundle { language { enableSplit = false } }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

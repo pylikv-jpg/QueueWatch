@@ -99,10 +99,7 @@ class QueueAlertManager(
                     try {
 
                         textToSpeech?.language =
-                            Locale(
-                                "ru",
-                                "RU"
-                            )
+                            L.locale()
 
 
                         textToSpeech?.setSpeechRate(
@@ -176,17 +173,17 @@ class QueueAlertManager(
 
                 AlertType.POSITION ->
 
-                    "Оповещение по очереди"
+                    L.text(R.string.position_alert_title)
 
 
                 AlertType.FORECAST ->
 
-                    "Оповещение о приближении вызова"
+                    L.text(R.string.forecast_alert_title)
 
 
                 AlertType.CALLED ->
 
-                    "ВНИМАНИЕ: ВЫЗОВ"
+                    L.text(R.string.called_alert_title)
             }
 
 
@@ -409,8 +406,10 @@ class QueueAlertManager(
 
         try {
 
-            textToSpeech?.speak(
-                message,
+            val engine = textToSpeech ?: return
+            if (engine.setLanguage(L.locale()) < TextToSpeech.LANG_AVAILABLE) return
+            engine.speak(
+                L.stored(message),
                 TextToSpeech.QUEUE_FLUSH,
                 null,
                 "QueueWatchAlert"
