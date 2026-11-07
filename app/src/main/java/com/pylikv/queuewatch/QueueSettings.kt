@@ -4,20 +4,48 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun QueueSettingsButton() {
+internal fun QueueSettingsButton(modifier: Modifier = Modifier) {
+    var menuOpen by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf(false) }
-    TextButton(onClick = { open = true }) { Text(L.text(R.string.settings)) }
+    var sourcesOpen by remember { mutableStateOf(false) }
+    Box(modifier) {
+        IconButton(onClick = { menuOpen = true }) {
+            Canvas(Modifier.size(24.dp).semantics { contentDescription = L.text(R.string.menu) }) {
+                for (y in listOf(6.dp, 12.dp, 18.dp)) {
+                    drawCircle(Color(0xFF9AA6B2), radius = 1.8.dp.toPx(),
+                        center = Offset(size.width / 2, y.toPx()))
+                }
+            }
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(text = { Text(L.text(R.string.settings)) }, onClick = {
+                menuOpen = false; open = true
+            })
+            DropdownMenuItem(text = { Text(L.text(R.string.sources_about)) }, onClick = {
+                menuOpen = false; sourcesOpen = true
+            })
+        }
+    }
+    if (sourcesOpen) SourceInformationDialog { sourcesOpen = false }
     if (open) AlertDialog(
         onDismissRequest = { open = false },
         title = { Text(L.text(R.string.settings)) },
@@ -30,6 +58,18 @@ internal fun QueueSettingsButton() {
         },
         confirmButton = { TextButton(onClick = { open = false }) { Text(L.text(R.string.close)) } }
     )
+}
+
+@Composable
+internal fun QueueAppHeader(large: Boolean = false) {
+    Box(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        Text("QueueWatch", modifier = Modifier.align(Alignment.Center).padding(horizontal = 48.dp),
+            color = if (large) Color(0xFFF1F5F9) else Color(0xFF9AA6B2),
+            fontSize = if (large) 34.sp else 18.sp,
+            fontWeight = if (large) FontWeight.Bold else FontWeight.SemiBold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        QueueSettingsButton(Modifier.align(Alignment.CenterEnd))
+    }
 }
 
 @Composable

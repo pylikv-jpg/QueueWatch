@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -120,8 +119,6 @@ private val BlueColor =
 private val BorderColor =
     Color(0xFF35414D)
 
-private const val OFFICIAL_SOURCE_URL =
-    "https://belarusborder.by/"
 
 
 /* ============================================================
@@ -381,20 +378,7 @@ private fun SetupScreen(
                ЗАГОЛОВОК
                ------------------------------------------------ */
 
-            Text(
-                text =
-                    "QueueWatch",
-
-                color =
-                    MainTextColor,
-
-                fontSize =
-                    34.sp,
-
-                fontWeight =
-                    FontWeight.Bold
-            )
-            QueueSettingsButton()
+            QueueAppHeader(large = true)
 
 
             Spacer(
@@ -1371,103 +1355,6 @@ private fun SetupScreen(
 }
 
 
-@Composable
-private fun OfficialSourceNotice() {
-
-    val context =
-        LocalContext.current
-
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(
-                RoundedCornerShape(
-                    16.dp
-                )
-            )
-            .background(
-                SecondaryPanelColor
-            )
-            .padding(
-                14.dp
-            )
-    ) {
-
-        Column {
-
-            Text(
-                text =
-                    L.text(R.string.source_heading),
-
-                color =
-                    MainTextColor,
-
-                fontSize =
-                    13.sp,
-
-                fontWeight =
-                    FontWeight.Bold
-            )
-
-
-            Spacer(
-                modifier =
-                    Modifier.height(
-                        6.dp
-                    )
-            )
-
-
-            Text(
-                text =
-                    L.text(R.string.official_source),
-
-                modifier = Modifier.clickable {
-                    context.startActivity(
-                        Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse(
-                                OFFICIAL_SOURCE_URL
-                            )
-                        )
-                    )
-                },
-
-                color =
-                    BlueColor,
-
-                fontSize =
-                    13.sp,
-
-                fontWeight =
-                    FontWeight.SemiBold
-            )
-
-
-            Spacer(
-                modifier =
-                    Modifier.height(
-                        8.dp
-                    )
-            )
-
-
-            Text(
-                text =
-                    L.text(R.string.independent_notice),
-
-                color =
-                    SecondaryTextColor,
-
-                fontSize =
-                    12.sp
-            )
-        }
-    }
-}
-
-
 /* ============================================================
    ЭКРАН ОТСЛЕЖИВАНИЯ
    ============================================================ */
@@ -1938,20 +1825,7 @@ private fun TrackingScreen(
         ) {
 
 
-            Text(
-                text =
-                    "QueueWatch",
-
-                color =
-                    SecondaryTextColor,
-
-                fontSize =
-                    18.sp,
-
-                fontWeight =
-                    FontWeight.SemiBold
-            )
-            QueueSettingsButton()
+            QueueAppHeader()
 
 
             Spacer(

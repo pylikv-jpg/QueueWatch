@@ -111,4 +111,7 @@
     <string name="notifications_disabled">Android pranešimai išjungti — įjungti</string>
     <string name="register_in_queue">Registruotis į eilę</string>
     <string name="browser_unavailable">Nepavyko atidaryti naršyklės. Patikrinkite, ar naršyklė įdiegta ir įjungta.</string>
+    <string name="menu">Meniu</string>
+    <string name="sources_about">Šaltiniai ir apie programą</string>
+    <string name="source_short">Šaltinis: belarusborder.by. Nepriklausoma, neoficiali programa.</string>
 </resources>

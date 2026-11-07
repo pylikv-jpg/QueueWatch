@@ -111,4 +111,7 @@
     <string name="notifications_disabled">Апавяшчэнні выключаны ў Android — уключыць</string>
     <string name="register_in_queue">Зарэгістравацца ў чарзе</string>
     <string name="browser_unavailable">Не атрымалася адкрыць браўзер. Праверце, ці браўзер усталяваны і ўключаны.</string>
+    <string name="menu">Меню</string>
+    <string name="sources_about">Крыніцы і пра праграму</string>
+    <string name="source_short">Крыніца: belarusborder.by. Неафіцыйная незалежная праграма.</string>
 </resources>

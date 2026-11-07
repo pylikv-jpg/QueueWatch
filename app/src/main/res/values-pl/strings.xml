@@ -111,4 +111,7 @@
     <string name="notifications_disabled">Powiadomienia w Androidzie wyłączone — włącz</string>
     <string name="register_in_queue">Zarejestruj się w kolejce</string>
     <string name="browser_unavailable">Nie można otworzyć przeglądarki. Sprawdź, czy przeglądarka jest zainstalowana i włączona.</string>
+    <string name="menu">Menu</string>
+    <string name="sources_about">Źródła i o aplikacji</string>
+    <string name="source_short">Źródło: belarusborder.by. Niezależna, nieoficjalna aplikacja.</string>
 </resources>

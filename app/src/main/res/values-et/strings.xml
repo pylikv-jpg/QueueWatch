@@ -111,4 +111,7 @@
     <string name="notifications_disabled">Androidi teavitused on väljas — lülita sisse</string>
     <string name="register_in_queue">Registreeru järjekorda</string>
     <string name="browser_unavailable">Brauserit ei saanud avada. Kontrollige, kas brauser on paigaldatud ja lubatud.</string>
+    <string name="menu">Menüü</string>
+    <string name="sources_about">Allikad ja rakendusest</string>
+    <string name="source_short">Allikas: belarusborder.by. Sõltumatu, mitteametlik rakendus.</string>
 </resources>

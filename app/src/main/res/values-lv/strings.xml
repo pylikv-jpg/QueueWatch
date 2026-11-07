@@ -111,4 +111,7 @@
     <string name="notifications_disabled">Android paziņojumi izslēgti — ieslēgt</string>
     <string name="register_in_queue">Reģistrēties rindā</string>
     <string name="browser_unavailable">Neizdevās atvērt pārlūkprogrammu. Pārbaudiet, vai tā ir instalēta un iespējota.</string>
+    <string name="menu">Izvēlne</string>
+    <string name="sources_about">Avoti un par lietotni</string>
+    <string name="source_short">Avots: belarusborder.by. Neatkarīga, neoficiāla lietotne.</string>
 </resources>

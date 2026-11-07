@@ -111,4 +111,7 @@
     <string name="notifications_disabled">Уведомления выключены в Android — включить</string>
     <string name="register_in_queue">Зарегистрироваться в очереди</string>
     <string name="browser_unavailable">Не удалось открыть браузер. Проверьте, что браузер установлен и включён.</string>
+    <string name="menu">Меню</string>
+    <string name="sources_about">Источники и о приложении</string>
+    <string name="source_short">Источник: belarusborder.by. Неофициальное независимое приложение.</string>
 </resources>

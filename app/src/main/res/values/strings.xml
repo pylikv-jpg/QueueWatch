@@ -112,4 +112,7 @@
     <string name="notifications_disabled">Notifications are off in Android — enable</string>
     <string name="register_in_queue">Register in the queue</string>
     <string name="browser_unavailable">Unable to open a browser. Check that a browser is installed and enabled.</string>
+    <string name="menu">Menu</string>
+    <string name="sources_about">Sources and about</string>
+    <string name="source_short">Source: belarusborder.by. Independent, unofficial app.</string>
 </resources>

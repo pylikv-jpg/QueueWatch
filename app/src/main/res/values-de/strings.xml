@@ -111,4 +111,7 @@
     <string name="notifications_disabled">Android-Benachrichtigungen sind aus — aktivieren</string>
     <string name="register_in_queue">Für die Warteschlange registrieren</string>
     <string name="browser_unavailable">Der Browser konnte nicht geöffnet werden. Prüfen Sie, ob ein Browser installiert und aktiviert ist.</string>
+    <string name="menu">Menü</string>
+    <string name="sources_about">Quellen und App-Info</string>
+    <string name="source_short">Quelle: belarusborder.by. Unabhängige, inoffizielle App.</string>
 </resources>

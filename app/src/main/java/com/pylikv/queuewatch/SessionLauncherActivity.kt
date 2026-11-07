@@ -243,13 +243,7 @@ private fun RestoredTrackingScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
             ) {
-                Text(
-                    text = "QueueWatch",
-                    color = RestoredSecondary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                QueueSettingsButton()
+                QueueAppHeader()
 
                 Spacer(Modifier.height(16.dp))
 
@@ -375,6 +369,7 @@ private fun RestoredTrackingScreen() {
                 Spacer(Modifier.height(18.dp))
 
                 TrackingHealthStatus()
+                OfficialSourceNotice()
 
                 Spacer(Modifier.height(18.dp))
 
