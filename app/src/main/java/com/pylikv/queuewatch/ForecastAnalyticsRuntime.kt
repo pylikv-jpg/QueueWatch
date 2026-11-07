@@ -8,8 +8,9 @@ import java.time.ZoneId
 internal fun analyticsConsent(context: Context): AnalyticsConsent {
     synchronized(AnalyticsConsent.LOCK) {
         val app = context.applicationContext
-        val legacySettingsExist = java.io.File(app.applicationInfo.dataDir,
-            "shared_prefs/${AnalyticsConsent.PREFERENCES}.xml").exists()
+        val settingsFile = java.io.File(app.applicationInfo.dataDir,
+            "shared_prefs/${AnalyticsConsent.PREFERENCES}.xml")
+        val legacySettingsExist = settingsFile.exists() || java.io.File(settingsFile.path + ".bak").exists()
         val consent = app.getSharedPreferences(AnalyticsConsent.PREFERENCES, Context.MODE_PRIVATE)
         val data = app.getSharedPreferences(AnalyticsConsent.DATA_PREFERENCES, Context.MODE_PRIVATE)
         return AnalyticsConsent(SharedPreferencesForecastStorage(consent), clearPending = {

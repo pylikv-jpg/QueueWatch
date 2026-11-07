@@ -36,7 +36,7 @@ class AnalyticsConsent(
     fun initializeDefaults(legacySettingsExist: Boolean) = synchronized(LOCK) {
         // Old disable() removed KEY, leaving an empty preferences file. Treat
         // that file as a refusal; absence of the grant alone is ambiguous.
-        if (storage.read(KEY) != null) return@synchronized
+        if (runCatching { storage.read(KEY) }.getOrElse { return@synchronized } != null) return@synchronized
         val value = JSONObject().put("version", 1)
         if (legacySettingsExist) value.put("grant", JSONObject.NULL)
         else value.put("grant", grantId()).put("welcome_pending", true)

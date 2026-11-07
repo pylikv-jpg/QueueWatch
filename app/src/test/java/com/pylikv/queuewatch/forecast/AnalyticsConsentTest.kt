@@ -48,6 +48,18 @@ class AnalyticsConsentTest {
         assertFalse(consent.welcomePending())
     }
 
+    @Test fun unreadableLegacyPreferencesRemainDisabledWithoutCrashingMigration() {
+        val corrupt = object : ForecastStorage {
+            override fun read(key: String): String? = throw ClassCastException("wrong preference type")
+            override fun write(key: String, value: String) { fail("Must not replace unreadable settings") }
+            override fun remove(keys: Set<String>) { fail("Must not remove unreadable settings") }
+        }
+        val consent = AnalyticsConsent(corrupt, {})
+        consent.initializeDefaults(legacySettingsExist = true)
+        assertFalse(consent.isEnabled())
+        assertNull(consent.currentGrant())
+    }
+
     @Test fun consentIsOffByDefaultAndUnknownOrCorruptVersionsFailClosed() {
         val prefs = Memory(); val consent = AnalyticsConsent(prefs, {})
         assertNull(consent.currentGrant())

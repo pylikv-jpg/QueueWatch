@@ -61,9 +61,9 @@ class QueueAlertManager(private val context: Context) {
             if (activeAlert != alert) return@launch
             stopPlayback(clearActive = false)
             raiseAlarmVolume()
-            repeatJob = scope.launch {
+            repeatJob = scope.launch playback@{
                 repeat(5) {
-                    if (activeAlert != alert) return@launch
+                    if (activeAlert != alert) return@playback
                     playAlert(alert)
                     delay(60_000L)
                 }
@@ -103,11 +103,12 @@ class QueueAlertManager(private val context: Context) {
     }
 
     private fun raiseAlarmVolume() {
+        val manager = audio ?: return
         runCatching {
-            val current = audio.getStreamVolume(AudioManager.STREAM_ALARM)
-            val minimum = kotlin.math.ceil(audio.getStreamMaxVolume(AudioManager.STREAM_ALARM) * 0.7).toInt()
+            val current = manager.getStreamVolume(AudioManager.STREAM_ALARM)
+            val minimum = kotlin.math.ceil(manager.getStreamMaxVolume(AudioManager.STREAM_ALARM) * 0.7).toInt()
             if (current < minimum) {
-                audio.setStreamVolume(AudioManager.STREAM_ALARM, minimum, 0)
+                manager.setStreamVolume(AudioManager.STREAM_ALARM, minimum, 0)
                 originalVolume = current
                 raisedVolume = minimum
             }
@@ -116,10 +117,11 @@ class QueueAlertManager(private val context: Context) {
 
     private fun restoreAlarmVolume() {
         runCatching {
+            val manager = audio ?: return@runCatching
             val previous = originalVolume
             // Respect any volume change the driver makes during the warning.
-            if (previous != null && audio.getStreamVolume(AudioManager.STREAM_ALARM) == raisedVolume) {
-                audio.setStreamVolume(AudioManager.STREAM_ALARM, previous, 0)
+            if (previous != null && manager.getStreamVolume(AudioManager.STREAM_ALARM) == raisedVolume) {
+                manager.setStreamVolume(AudioManager.STREAM_ALARM, previous, 0)
             }
         }
         originalVolume = null
