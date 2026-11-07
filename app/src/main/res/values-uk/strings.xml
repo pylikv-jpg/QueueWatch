@@ -114,4 +114,5 @@
     <string name="menu">Меню</string>
     <string name="sources_about">Джерела та про застосунок</string>
     <string name="source_short">Джерело: belarusborder.by. Неофіційний незалежний застосунок.</string>
+    <string name="stop_tracking_failed">Не вдалося надіслати команду зупинки. Спробуйте ще раз.</string>
 </resources>

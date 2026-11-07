@@ -114,4 +114,5 @@
     <string name="menu">Menüü</string>
     <string name="sources_about">Allikad ja rakendusest</string>
     <string name="source_short">Allikas: belarusborder.by. Sõltumatu, mitteametlik rakendus.</string>
+    <string name="stop_tracking_failed">Peatamiskäsku ei saanud saata. Proovige uuesti.</string>
 </resources>

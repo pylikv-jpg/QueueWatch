@@ -114,4 +114,5 @@
     <string name="menu">Meniu</string>
     <string name="sources_about">Šaltiniai ir apie programą</string>
     <string name="source_short">Šaltinis: belarusborder.by. Nepriklausoma, neoficiali programa.</string>
+    <string name="stop_tracking_failed">Nepavyko išsiųsti sustabdymo komandos. Bandykite dar kartą.</string>
 </resources>

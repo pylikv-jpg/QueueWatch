@@ -286,7 +286,12 @@ fun QueueWatchApp() {
                             ?: 100,
 
                     calledAlertEnabled =
-                        calledAlertEnabled
+                        calledAlertEnabled,
+
+                    onStopTracking = {
+                        hasTrackingSession = false
+                        trackingStarted = false
+                    }
                 )
             }
         }
@@ -1370,7 +1375,8 @@ private fun TrackingScreen(
 
     positionAlertThreshold: Int,
 
-    calledAlertEnabled: Boolean
+    calledAlertEnabled: Boolean,
+    onStopTracking: () -> Unit
 ) {
 
     val context =
@@ -1809,20 +1815,7 @@ private fun TrackingScreen(
             ScreenBackground
     ) {
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    horizontal = 20.dp,
-                    vertical = 20.dp
-                ),
-
-            horizontalAlignment =
-                Alignment.CenterHorizontally,
-
-            verticalArrangement =
-                Arrangement.Top
-        ) {
+        TrackingLayout(onStopped = onStopTracking) {
 
 
             QueueAppHeader()

@@ -1,6 +1,7 @@
 # Checkpoint chat proposal — 7 November 2026
 
-Status: discussed with Vasili; not implemented or deployed.
+Status: deferred by Vasili on 7 November 2026. Not approved for implementation;
+not implemented or deployed. Keep chat outside the current release scope.
 
 ## Requested experience
 

@@ -6,8 +6,6 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -235,14 +232,7 @@ private fun RestoredTrackingScreen() {
             modifier = Modifier.fillMaxSize(),
             color = RestoredBackground
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Top
-            ) {
+            TrackingLayout(onStopped = { active = false }) {
                 QueueAppHeader()
 
                 Spacer(Modifier.height(16.dp))
@@ -374,37 +364,7 @@ private fun RestoredTrackingScreen() {
                 Spacer(Modifier.height(18.dp))
 
 
-                Button(
-                    onClick = {
-                        try {
-                            context.startService(
-                                Intent(context, QueueWatchService::class.java).apply {
-                                    action = QueueWatchService.ACTION_STOP_TRACKING
-                                }
-                            )
-                        } catch (_: Exception) {
-                        }
 
-                        // Route immediately back to setup. The service also
-                        // clears the remaining durable session state.
-                        prefs.edit()
-                            .putBoolean(QueueWatchService.KEY_TRACKING_ACTIVE, false)
-                            .commit()
-                        active = false
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF303A45),
-                        contentColor = RestoredText
-                    )
-                ) {
-                    Text(
-                        L.text(R.string.stop_tracking),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
             }
         }
     }

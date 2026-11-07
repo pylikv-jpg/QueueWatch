@@ -114,4 +114,5 @@
     <string name="menu">Menü</string>
     <string name="sources_about">Quellen und App-Info</string>
     <string name="source_short">Quelle: belarusborder.by. Unabhängige, inoffizielle App.</string>
+    <string name="stop_tracking_failed">Der Stoppbefehl konnte nicht gesendet werden. Bitte erneut versuchen.</string>
 </resources>

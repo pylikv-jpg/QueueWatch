@@ -115,4 +115,5 @@
     <string name="menu">Menu</string>
     <string name="sources_about">Sources and about</string>
     <string name="source_short">Source: belarusborder.by. Independent, unofficial app.</string>
+    <string name="stop_tracking_failed">Unable to send the stop command. Please try again.</string>
 </resources>
