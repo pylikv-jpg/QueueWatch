@@ -98,4 +98,15 @@
     <string name="cp_grigorovshchina">Grigorovshchina</string>
     <string name="cp_kamenny_log">Kamenny Log</string>
     <string name="cp_kozlovichi">Kozlovichi</string>
+    <string name="settings">Nustatymai</string>
+    <string name="welcome_title">Padėti pagerinti eilės tikslumą?</string>
+    <string name="welcome_body">Dalyvavimas pasirinktas pagal numatymą. Stebėjimo metu, taip pat fone, QueueWatch gali siųsti kūrėjo analitikos serveriui pasienio punktą, transporto tipą, pozicijas, stebėjimo laiką, laukimo skaičiavimus ir atsitiktinius identifikatorius. Automobilio numeris, kontaktai ir GPS nesiunčiami. Išjungti galima nustatymuose. Kol nepasirinksite, niekas nesiunčiama.</string>
+    <string name="welcome_yes">Padėti</string>
+    <string name="welcome_no">Ne</string>
+    <string name="health_running">Programa veikia • atnaujinami eilės duomenys</string>
+    <string name="health_retrying">Programa veikia • kartojama užklausa šaltiniui</string>
+    <string name="health_searching">Programa veikia • ieškoma automobilio</string>
+    <string name="health_unconfirmed">Stebėjimas paleidžiamas arba jo veikimas nepatvirtintas. Jei tai nesikeičia, atidarykite programą iš naujo.</string>
+    <string name="health_stopped">Stebėjimas sustabdytas</string>
+    <string name="notifications_disabled">Android pranešimai išjungti — įjungti</string>
 </resources>

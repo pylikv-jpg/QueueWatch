@@ -51,6 +51,7 @@ class QueueWatchService : Service() {
         const val ACTION_STOP_TRACKING = "com.pylikv.queuewatch.STOP_TRACKING"
 
         const val KEY_TRACKING_ACTIVE = "tracking_active"
+        const val KEY_HEARTBEAT = "monitoring_heartbeat"
         const val KEY_CAR_NUMBER = "session_car_number"
         const val KEY_CHECKPOINT = "session_checkpoint"
         const val KEY_POSITION_ALERT_ENABLED = "session_position_alert_enabled"
@@ -305,6 +306,7 @@ class QueueWatchService : Service() {
         while (preferences.getBoolean(KEY_TRACKING_ACTIVE, false)) {
             try {
                 currentCoroutineContext().ensureActive()
+                preferences.edit().putLong(KEY_HEARTBEAT, System.currentTimeMillis()).apply()
                 val result = api.getMonitoring(checkpointId)
                 currentCoroutineContext().ensureActive()
 
@@ -489,7 +491,8 @@ class QueueWatchService : Service() {
 
     private fun triggerAlert(type: AlertType, message: String, eventId: String) {
         if (isAcknowledged(eventId)) return
-        if (alertManager?.activeAlert != null) return
+        // A real call must interrupt a position warning, never disappear behind it.
+        if (alertManager?.activeAlert != null && type != AlertType.CALLED) return
 
         val title = when (type) {
             AlertType.POSITION -> L.text(R.string.position_alert_title)
@@ -545,6 +548,7 @@ class QueueWatchService : Service() {
         // destroying the service must never do this.
         preferences.edit()
             .putBoolean(KEY_TRACKING_ACTIVE, false)
+            .remove(KEY_HEARTBEAT)
             .remove(KEY_CAR_NUMBER)
             .remove(KEY_CHECKPOINT)
             .remove(KEY_POSITION_ALERT_ENABLED)

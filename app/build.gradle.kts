@@ -12,8 +12,8 @@ android {
         applicationId = "com.pylikv.queuewatch"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("queuewatchVersionCode").orElse("23").get().toInt()
-        versionName = "1.2.0"
+        versionCode = providers.gradleProperty("queuewatchVersionCode").orElse("24").get().toInt()
+        versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -39,9 +39,6 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".preview"
-            versionNameSuffix = "-preview"
-            resValue("string", "app_name", "QueueWatch Test")
             signingConfig = signingConfigs.getByName("debug")
         }
 

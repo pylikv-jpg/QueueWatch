@@ -98,4 +98,15 @@
     <string name="cp_grigorovshchina">Grigorovshchina</string>
     <string name="cp_kamenny_log">Kamenny Log</string>
     <string name="cp_kozlovichi">Kozlovichi</string>
+    <string name="settings">Einstellungen</string>
+    <string name="welcome_title">Die Genauigkeit der Warteschlange verbessern?</string>
+    <string name="welcome_body">Die Teilnahme ist vorausgewählt. Während der Überwachung, auch im Hintergrund, kann QueueWatch Grenzübergang, Fahrzeugtyp, Positionen, Beobachtungszeiten, Wartezeitberechnungen und zufällige Kennungen an den Analyseserver des Entwicklers senden. Kennzeichen, Kontakte und GPS werden nicht gesendet. In den Einstellungen jederzeit abschaltbar. Vor Ihrer Auswahl wird nichts gesendet.</string>
+    <string name="welcome_yes">Mithelfen</string>
+    <string name="welcome_no">Nein</string>
+    <string name="health_running">Programm läuft • Warteschlangendaten werden aktualisiert</string>
+    <string name="health_retrying">Programm läuft • Datenquelle wird erneut abgefragt</string>
+    <string name="health_searching">Programm läuft • Fahrzeug wird gesucht</string>
+    <string name="health_unconfirmed">Die Überwachung startet oder ihr Betrieb ist unbestätigt. Falls dies anhält, öffnen Sie die App erneut.</string>
+    <string name="health_stopped">Überwachung beendet</string>
+    <string name="notifications_disabled">Android-Benachrichtigungen sind aus — aktivieren</string>
 </resources>

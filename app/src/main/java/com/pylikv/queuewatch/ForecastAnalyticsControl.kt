@@ -26,12 +26,12 @@ internal fun ForecastAnalyticsControl() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences(AnalyticsConsent.PREFERENCES, Context.MODE_PRIVATE) }
     val consent = remember { analyticsConsent(context) }
-    var enabled by remember { mutableStateOf(consent.currentGrant() != null) }
+    var enabled by remember { mutableStateOf(consent.isEnabled()) }
     var confirm by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf(false) }
     DisposableEffect(prefs) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-            enabled = consent.currentGrant() != null
+            enabled = consent.isEnabled()
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }

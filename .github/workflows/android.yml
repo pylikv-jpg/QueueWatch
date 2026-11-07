@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/unified-queuewatch-20261107
       - feature/languages-preview-20261106
       - fix/source-freshness-20261106
       - fix/forecast-source-freshness-20261106

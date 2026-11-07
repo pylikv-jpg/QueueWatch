@@ -98,4 +98,15 @@
     <string name="cp_grigorovshchina">Grigorovshchina</string>
     <string name="cp_kamenny_log">Kamenny Log</string>
     <string name="cp_kozlovichi">Kozlovichi</string>
+    <string name="settings">Seaded</string>
+    <string name="welcome_title">Aidata parandada järjekorra täpsust?</string>
+    <string name="welcome_body">Osalemine on vaikimisi valitud. Jälgimise ajal, ka taustal, võib QueueWatch saata arendaja analüüsiserverisse piiripunkti, sõiduki tüübi, asukohad järjekorras, vaatlusajad, ooteaja arvutused ja juhuslikud tunnused. Sõidukinumbrit, kontakte ega GPS-i ei saadeta. Selle saab seadetes välja lülitada. Enne valiku tegemist ei saadeta midagi.</string>
+    <string name="welcome_yes">Aitan</string>
+    <string name="welcome_no">Ei</string>
+    <string name="health_running">Programm töötab • järjekorra andmeid uuendatakse</string>
+    <string name="health_retrying">Programm töötab • andmeallika päringut korratakse</string>
+    <string name="health_searching">Programm töötab • sõidukit otsitakse</string>
+    <string name="health_unconfirmed">Jälgimine käivitub või selle töö pole kinnitatud. Kui see püsib, avage rakendus uuesti.</string>
+    <string name="health_stopped">Jälgimine peatatud</string>
+    <string name="notifications_disabled">Androidi teavitused on väljas — lülita sisse</string>
 </resources>

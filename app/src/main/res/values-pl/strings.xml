@@ -98,4 +98,15 @@
     <string name="cp_grigorovshchina">Grigorovshchina</string>
     <string name="cp_kamenny_log">Kamenny Log</string>
     <string name="cp_kozlovichi">Kozlovichi</string>
+    <string name="settings">Ustawienia</string>
+    <string name="welcome_title">Pomóc poprawić dokładność kolejki?</string>
+    <string name="welcome_body">Udział jest domyślnie zaznaczony. Podczas śledzenia, również w tle, QueueWatch może wysyłać na serwer analityczny dewelopera przejście, typ pojazdu, pozycje, czasy obserwacji, obliczenia oczekiwania i losowe identyfikatory. Numery rejestracyjne, kontakty i GPS nie są wysyłane. Można to wyłączyć w ustawieniach. Do dokonania wyboru nic nie jest wysyłane.</string>
+    <string name="welcome_yes">Pomagam</string>
+    <string name="welcome_no">Nie</string>
+    <string name="health_running">Program działa • aktualizujemy dane kolejki</string>
+    <string name="health_retrying">Program działa • ponawiamy zapytanie do źródła</string>
+    <string name="health_searching">Program działa • szukamy pojazdu</string>
+    <string name="health_unconfirmed">Śledzenie uruchamia się lub jego działanie nie jest potwierdzone. Jeśli to trwa, otwórz aplikację ponownie.</string>
+    <string name="health_stopped">Śledzenie zatrzymane</string>
+    <string name="notifications_disabled">Powiadomienia w Androidzie wyłączone — włącz</string>
 </resources>

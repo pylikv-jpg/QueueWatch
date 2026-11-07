@@ -1,0 +1,5 @@
+.gradle/
+**/build/
+local.properties
+tools/queuewatch-debug.keystore
+__pycache__/

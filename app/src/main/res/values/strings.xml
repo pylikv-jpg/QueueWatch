@@ -99,4 +99,15 @@
     <string name="cp_grigorovshchina">Grigorovshchina</string>
     <string name="cp_kamenny_log">Kamenny Log</string>
     <string name="cp_kozlovichi">Kozlovichi</string>
+    <string name="settings">Settings</string>
+    <string name="welcome_title">Help improve queue accuracy?</string>
+    <string name="welcome_body">Participation is selected by default. During tracking, including in the background, QueueWatch can send the checkpoint, vehicle type, positions, observation times, waiting-time calculations and random identifiers to the developer’s analytics server. Vehicle numbers, contacts and GPS are excluded. You can turn this off in Settings. Nothing is sent until you choose.</string>
+    <string name="welcome_yes">Help improve</string>
+    <string name="welcome_no">No</string>
+    <string name="health_running">Program running • updating queue data</string>
+    <string name="health_retrying">Program running • retrying the data source</string>
+    <string name="health_searching">Program running • searching for the vehicle</string>
+    <string name="health_unconfirmed">Tracking is starting or its operation is unconfirmed. If this persists, reopen the app.</string>
+    <string name="health_stopped">Tracking stopped</string>
+    <string name="notifications_disabled">Notifications are off in Android — enable</string>
 </resources>

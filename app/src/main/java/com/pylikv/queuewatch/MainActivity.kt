@@ -1,5 +1,11 @@
 package com.pylikv.queuewatch
 
+import android.Manifest
+import android.os.Build
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -124,6 +130,8 @@ private const val OFFICIAL_SOURCE_URL =
 
 @Composable
 fun QueueWatchApp() {
+    ParticipationWelcome()
+    val appContext = LocalContext.current
 
     var carNumber by rememberSaveable {
         mutableStateOf("")
@@ -152,6 +160,14 @@ fun QueueWatchApp() {
     var calledAlertEnabled by rememberSaveable {
         mutableStateOf(true)
     }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        // Tracking remains usable if the driver declines notifications.
+        hasTrackingSession = true
+        trackingStarted = true
+    }
+
 
 
     BackHandler(
@@ -244,8 +260,13 @@ fun QueueWatchApp() {
                     },
 
                     onStartTracking = {
-                        hasTrackingSession = true
-                        trackingStarted = true
+                        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
+                                appContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            hasTrackingSession = true
+                            trackingStarted = true
+                        }
                     }
                 )
 
@@ -373,6 +394,7 @@ private fun SetupScreen(
                 fontWeight =
                     FontWeight.Bold
             )
+            QueueSettingsButton()
 
 
             Spacer(
@@ -1332,10 +1354,6 @@ private fun SetupScreen(
             )
 
 
-            LanguageSelector()
-            Spacer(Modifier.height(14.dp))
-            ForecastAnalyticsControl()
-            Spacer(Modifier.height(14.dp))
             OfficialSourceNotice()
 
 
@@ -1930,6 +1948,7 @@ private fun TrackingScreen(
                 fontWeight =
                     FontWeight.SemiBold
             )
+            QueueSettingsButton()
 
 
             Spacer(
@@ -2512,29 +2531,7 @@ private fun TrackingScreen(
             )
 
 
-            Text(
-                text =
-                    L.text(R.string.tracking_active),
-
-                color =
-                    if (
-                        vehicleState ==
-                        "UNKNOWN"
-                    ) {
-
-                        YellowColor
-
-                    } else {
-
-                        GreenColor
-                    },
-
-                fontSize =
-                    12.sp,
-
-                fontWeight =
-                    FontWeight.SemiBold
-            )
+            TrackingHealthStatus()
 
 
             Spacer(
@@ -2545,10 +2542,6 @@ private fun TrackingScreen(
             )
 
 
-            LanguageSelector()
-            Spacer(Modifier.height(14.dp))
-            ForecastAnalyticsControl()
-            Spacer(Modifier.height(14.dp))
             OfficialSourceNotice()
 
 

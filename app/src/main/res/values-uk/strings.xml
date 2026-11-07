@@ -98,4 +98,15 @@
     <string name="cp_grigorovshchina">Григорівщина</string>
     <string name="cp_kamenny_log">Кам’яний Лог</string>
     <string name="cp_kozlovichi">Козловичі</string>
+    <string name="settings">Налаштування</string>
+    <string name="welcome_title">Допомогти підвищити точність черги?</string>
+    <string name="welcome_body">Участь вибрано за замовчуванням. Під час відстеження, зокрема у фоні, QueueWatch може надсилати на сервер аналітики розробника КПП, тип транспорту, позиції, час спостережень, розрахунки очікування та випадкові коди. Номер автомобіля, контакти та GPS не надсилаються. Вимкнути можна в налаштуваннях. До вашого вибору нічого не надсилається.</string>
+    <string name="welcome_yes">Допомагати</string>
+    <string name="welcome_no">Ні</string>
+    <string name="health_running">Програма працює • оновлюємо дані черги</string>
+    <string name="health_retrying">Програма працює • повторюємо запит до джерела</string>
+    <string name="health_searching">Програма працює • шукаємо автомобіль</string>
+    <string name="health_unconfirmed">Відстеження запускається або його роботу не підтверджено. Якщо це триває, відкрийте застосунок знову.</string>
+    <string name="health_stopped">Відстеження зупинено</string>
+    <string name="notifications_disabled">Сповіщення вимкнено в Android — увімкнути</string>
 </resources>

@@ -98,4 +98,15 @@
     <string name="cp_grigorovshchina">Grigorovshchina</string>
     <string name="cp_kamenny_log">Kamenny Log</string>
     <string name="cp_kozlovichi">Kozlovichi</string>
+    <string name="settings">Iestatījumi</string>
+    <string name="welcome_title">Palīdzēt uzlabot rindas precizitāti?</string>
+    <string name="welcome_body">Dalība ir atlasīta pēc noklusējuma. Izsekošanas laikā, arī fonā, QueueWatch var sūtīt izstrādātāja analītikas serverim robežpunktu, transporta veidu, pozīcijas, novērojumu laikus, gaidīšanas aprēķinus un nejaušus identifikatorus. Automašīnas numurs, kontakti un GPS netiek sūtīti. To var izslēgt iestatījumos. Līdz jūsu izvēlei nekas netiek sūtīts.</string>
+    <string name="welcome_yes">Palīdzēt</string>
+    <string name="welcome_no">Nē</string>
+    <string name="health_running">Programma darbojas • atjauninām rindas datus</string>
+    <string name="health_retrying">Programma darbojas • atkārtojam pieprasījumu avotam</string>
+    <string name="health_searching">Programma darbojas • meklējam automašīnu</string>
+    <string name="health_unconfirmed">Izsekošana sākas vai tās darbība nav apstiprināta. Ja tas nemainās, atveriet lietotni vēlreiz.</string>
+    <string name="health_stopped">Izsekošana apturēta</string>
+    <string name="notifications_disabled">Android paziņojumi izslēgti — ieslēgt</string>
 </resources>

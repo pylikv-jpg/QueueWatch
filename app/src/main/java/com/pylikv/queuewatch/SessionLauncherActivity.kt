@@ -101,6 +101,7 @@ private val RestoredBlue = Color(0xFF4DA3FF)
 
 @Composable
 private fun RestoredTrackingScreen() {
+    ParticipationWelcome()
     val context = LocalContext.current
     val activity = context as? Activity
     val prefs = remember {
@@ -248,6 +249,7 @@ private fun RestoredTrackingScreen() {
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+                QueueSettingsButton()
 
                 Spacer(Modifier.height(16.dp))
 
@@ -372,19 +374,10 @@ private fun RestoredTrackingScreen() {
 
                 Spacer(Modifier.height(18.dp))
 
-                Text(
-                    text = L.text(R.string.tracking_active),
-                    color = if (state == "UNKNOWN") RestoredYellow else RestoredGreen,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                TrackingHealthStatus()
 
                 Spacer(Modifier.height(18.dp))
 
-                LanguageSelector()
-                Spacer(Modifier.height(14.dp))
-                ForecastAnalyticsControl()
-                Spacer(Modifier.height(14.dp))
 
                 Button(
                     onClick = {
