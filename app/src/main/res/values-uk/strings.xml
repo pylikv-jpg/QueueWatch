@@ -109,4 +109,6 @@
     <string name="health_unconfirmed">Відстеження запускається або його роботу не підтверджено. Якщо це триває, відкрийте застосунок знову.</string>
     <string name="health_stopped">Відстеження зупинено</string>
     <string name="notifications_disabled">Сповіщення вимкнено в Android — увімкнути</string>
+    <string name="register_in_queue">Зареєструватися в черзі</string>
+    <string name="browser_unavailable">Не вдалося відкрити браузер. Перевірте, чи браузер установлено й увімкнено.</string>
 </resources>

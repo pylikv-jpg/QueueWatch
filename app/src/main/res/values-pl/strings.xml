@@ -109,4 +109,6 @@
     <string name="health_unconfirmed">Śledzenie uruchamia się lub jego działanie nie jest potwierdzone. Jeśli to trwa, otwórz aplikację ponownie.</string>
     <string name="health_stopped">Śledzenie zatrzymane</string>
     <string name="notifications_disabled">Powiadomienia w Androidzie wyłączone — włącz</string>
+    <string name="register_in_queue">Zarejestruj się w kolejce</string>
+    <string name="browser_unavailable">Nie można otworzyć przeglądarki. Sprawdź, czy przeglądarka jest zainstalowana i włączona.</string>
 </resources>

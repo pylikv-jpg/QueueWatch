@@ -109,4 +109,6 @@
     <string name="health_unconfirmed">Jälgimine käivitub või selle töö pole kinnitatud. Kui see püsib, avage rakendus uuesti.</string>
     <string name="health_stopped">Jälgimine peatatud</string>
     <string name="notifications_disabled">Androidi teavitused on väljas — lülita sisse</string>
+    <string name="register_in_queue">Registreeru järjekorda</string>
+    <string name="browser_unavailable">Brauserit ei saanud avada. Kontrollige, kas brauser on paigaldatud ja lubatud.</string>
 </resources>

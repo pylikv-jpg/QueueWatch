@@ -109,4 +109,6 @@
     <string name="health_unconfirmed">Die Überwachung startet oder ihr Betrieb ist unbestätigt. Falls dies anhält, öffnen Sie die App erneut.</string>
     <string name="health_stopped">Überwachung beendet</string>
     <string name="notifications_disabled">Android-Benachrichtigungen sind aus — aktivieren</string>
+    <string name="register_in_queue">Für die Warteschlange registrieren</string>
+    <string name="browser_unavailable">Der Browser konnte nicht geöffnet werden. Prüfen Sie, ob ein Browser installiert und aktiviert ist.</string>
 </resources>

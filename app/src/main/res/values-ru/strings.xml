@@ -109,4 +109,6 @@
     <string name="health_unconfirmed">Отслеживание запускается или его работа не подтверждена. Если это не меняется, откройте приложение заново.</string>
     <string name="health_stopped">Отслеживание остановлено</string>
     <string name="notifications_disabled">Уведомления выключены в Android — включить</string>
+    <string name="register_in_queue">Зарегистрироваться в очереди</string>
+    <string name="browser_unavailable">Не удалось открыть браузер. Проверьте, что браузер установлен и включён.</string>
 </resources>

@@ -110,4 +110,6 @@
     <string name="health_unconfirmed">Tracking is starting or its operation is unconfirmed. If this persists, reopen the app.</string>
     <string name="health_stopped">Tracking stopped</string>
     <string name="notifications_disabled">Notifications are off in Android — enable</string>
+    <string name="register_in_queue">Register in the queue</string>
+    <string name="browser_unavailable">Unable to open a browser. Check that a browser is installed and enabled.</string>
 </resources>

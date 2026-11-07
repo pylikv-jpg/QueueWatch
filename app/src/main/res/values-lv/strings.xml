@@ -109,4 +109,6 @@
     <string name="health_unconfirmed">Izsekošana sākas vai tās darbība nav apstiprināta. Ja tas nemainās, atveriet lietotni vēlreiz.</string>
     <string name="health_stopped">Izsekošana apturēta</string>
     <string name="notifications_disabled">Android paziņojumi izslēgti — ieslēgt</string>
+    <string name="register_in_queue">Reģistrēties rindā</string>
+    <string name="browser_unavailable">Neizdevās atvērt pārlūkprogrammu. Pārbaudiet, vai tā ir instalēta un iespējota.</string>
 </resources>

@@ -109,4 +109,6 @@
     <string name="health_unconfirmed">Stebėjimas paleidžiamas arba jo veikimas nepatvirtintas. Jei tai nesikeičia, atidarykite programą iš naujo.</string>
     <string name="health_stopped">Stebėjimas sustabdytas</string>
     <string name="notifications_disabled">Android pranešimai išjungti — įjungti</string>
+    <string name="register_in_queue">Registruotis į eilę</string>
+    <string name="browser_unavailable">Nepavyko atidaryti naršyklės. Patikrinkite, ar naršyklė įdiegta ir įjungta.</string>
 </resources>
