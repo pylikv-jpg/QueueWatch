@@ -1,7 +1,12 @@
 package com.pylikv.queuewatch
 
+import android.Manifest
+import android.os.Build
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -61,6 +67,9 @@ import kotlinx.coroutines.delay
 
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
 
     override fun onCreate(
         savedInstanceState: Bundle?
@@ -111,8 +120,6 @@ private val BlueColor =
 private val BorderColor =
     Color(0xFF35414D)
 
-private const val OFFICIAL_SOURCE_URL =
-    "https://belarusborder.by/"
 
 
 /* ============================================================
@@ -121,6 +128,8 @@ private const val OFFICIAL_SOURCE_URL =
 
 @Composable
 fun QueueWatchApp() {
+    ParticipationWelcome()
+    val appContext = LocalContext.current
 
     var carNumber by rememberSaveable {
         mutableStateOf("")
@@ -149,6 +158,14 @@ fun QueueWatchApp() {
     var calledAlertEnabled by rememberSaveable {
         mutableStateOf(true)
     }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        // Tracking remains usable if the driver declines notifications.
+        hasTrackingSession = true
+        trackingStarted = true
+    }
+
 
 
     BackHandler(
@@ -241,8 +258,13 @@ fun QueueWatchApp() {
                     },
 
                     onStartTracking = {
-                        hasTrackingSession = true
-                        trackingStarted = true
+                        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
+                                appContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            hasTrackingSession = true
+                            trackingStarted = true
+                        }
                     }
                 )
 
@@ -265,7 +287,12 @@ fun QueueWatchApp() {
                             ?: 100,
 
                     calledAlertEnabled =
-                        calledAlertEnabled
+                        calledAlertEnabled,
+
+                    onStopTracking = {
+                        hasTrackingSession = false
+                        trackingStarted = false
+                    }
                 )
             }
         }
@@ -338,6 +365,7 @@ private fun SetupScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
                 .verticalScroll(
                     scrollState
                 )
@@ -357,19 +385,7 @@ private fun SetupScreen(
                ЗАГОЛОВОК
                ------------------------------------------------ */
 
-            Text(
-                text =
-                    "QueueWatch",
-
-                color =
-                    MainTextColor,
-
-                fontSize =
-                    34.sp,
-
-                fontWeight =
-                    FontWeight.Bold
-            )
+            QueueAppHeader(large = true)
 
 
             Spacer(
@@ -382,7 +398,7 @@ private fun SetupScreen(
 
             Text(
                 text =
-                    "ЭЛЕКТРОННАЯ ОЧЕРЕДЬ",
+                    L.text(R.string.queue_title),
 
                 color =
                     BlueColor,
@@ -405,7 +421,7 @@ private fun SetupScreen(
 
             Text(
                 text =
-                    "Мониторинг автомобиля на пункте пропуска",
+                    L.text(R.string.queue_subtitle),
 
                 color =
                     SecondaryTextColor,
@@ -450,7 +466,7 @@ private fun SetupScreen(
 
                     Text(
                         text =
-                            "АВТОМОБИЛЬ",
+                            L.text(R.string.vehicle),
 
                         color =
                             SecondaryTextColor,
@@ -478,7 +494,7 @@ private fun SetupScreen(
                         onValueChange = {
 
                             onCarNumberChange(
-                                it.uppercase()
+                                it.uppercase(java.util.Locale.ROOT)
                             )
                         },
 
@@ -486,7 +502,7 @@ private fun SetupScreen(
 
                             Text(
                                 text =
-                                    "Регистрационный номер"
+                                    L.text(R.string.registration_number)
                             )
                         },
 
@@ -494,7 +510,7 @@ private fun SetupScreen(
 
                             Text(
                                 text =
-                                    "Например: 1234AB7"
+                                    L.text(R.string.registration_example)
                             )
                         },
 
@@ -553,7 +569,7 @@ private fun SetupScreen(
 
                     Text(
                         text =
-                            "ПУНКТ ПРОПУСКА",
+                            L.text(R.string.checkpoint_heading),
 
                         color =
                             SecondaryTextColor,
@@ -590,7 +606,7 @@ private fun SetupScreen(
                         OutlinedTextField(
 
                             value =
-                                checkpoint,
+                                L.checkpoint(checkpoint),
 
                             onValueChange = {},
 
@@ -601,7 +617,7 @@ private fun SetupScreen(
 
                                 Text(
                                     text =
-                                        "Выберите пункт"
+                                        L.text(R.string.choose_checkpoint)
                                 )
                             },
 
@@ -609,7 +625,7 @@ private fun SetupScreen(
 
                                 Text(
                                     text =
-                                        "Пункт пропуска"
+                                        L.text(R.string.checkpoint)
                                 )
                             },
 
@@ -683,7 +699,7 @@ private fun SetupScreen(
 
                                         Text(
                                             text =
-                                                name
+                                                L.checkpoint(name)
                                         )
                                     },
 
@@ -749,7 +765,7 @@ private fun SetupScreen(
 
                             Text(
                                 text =
-                                    "ОПОВЕЩЕНИЯ",
+                                    L.text(R.string.alerts),
 
                                 color =
                                     MainTextColor,
@@ -764,7 +780,7 @@ private fun SetupScreen(
 
                             Text(
                                 text =
-                                    "Сигнал и голосовое предупреждение",
+                                    L.text(R.string.sound_and_voice),
 
                                 color =
                                     SecondaryTextColor,
@@ -838,7 +854,7 @@ private fun SetupScreen(
 
                                     Text(
                                         text =
-                                            "ПО ПОЗИЦИИ",
+                                            L.text(R.string.by_position),
 
                                         color =
                                             MainTextColor,
@@ -857,11 +873,11 @@ private fun SetupScreen(
                                                 positionAlertEnabled
                                             ) {
 
-                                                "Предупреждение включено"
+                                                L.text(R.string.alert_enabled)
 
                                             } else {
 
-                                                "Предупреждение выключено"
+                                                L.text(R.string.alert_disabled)
                                             },
 
                                         color =
@@ -928,11 +944,11 @@ private fun SetupScreen(
                                                 positionAlertEnabled
                                             ) {
 
-                                                "ВКЛ"
+                                                L.text(R.string.on)
 
                                             } else {
 
-                                                "ВЫКЛ"
+                                                L.text(R.string.off)
                                             },
 
                                         fontWeight =
@@ -973,7 +989,7 @@ private fun SetupScreen(
 
                                         Text(
                                             text =
-                                                "Предупредить при позиции"
+                                                L.text(R.string.position_threshold)
                                         )
                                     },
 
@@ -981,7 +997,7 @@ private fun SetupScreen(
 
                                         Text(
                                             text =
-                                                "Сигнал сработает при этой позиции или меньше"
+                                                L.text(R.string.position_threshold_hint)
                                         )
                                     },
 
@@ -1089,7 +1105,7 @@ private fun SetupScreen(
 
                                 Text(
                                     text =
-                                        "ВЫЗОВ НА КПП",
+                                        L.text(R.string.checkpoint_call_heading),
 
                                     color =
                                         MainTextColor,
@@ -1108,11 +1124,11 @@ private fun SetupScreen(
                                             calledAlertEnabled
                                         ) {
 
-                                            "Обязательное предупреждение включено"
+                                            L.text(R.string.required_alert_enabled)
 
                                         } else {
 
-                                            "Предупреждение выключено"
+                                            L.text(R.string.alert_disabled)
                                         },
 
                                     color =
@@ -1179,11 +1195,11 @@ private fun SetupScreen(
                                             calledAlertEnabled
                                         ) {
 
-                                            "ВКЛ"
+                                            L.text(R.string.on)
 
                                         } else {
 
-                                            "ВЫКЛ"
+                                            L.text(R.string.off)
                                         },
 
                                     fontWeight =
@@ -1203,6 +1219,9 @@ private fun SetupScreen(
                     )
             )
 
+
+            RegistrationButton()
+            Spacer(Modifier.height(10.dp))
 
             /* ------------------------------------------------
                КНОПКА ЗАПУСКА
@@ -1250,7 +1269,7 @@ private fun SetupScreen(
 
                 Text(
                     text =
-                        "НАЧАТЬ ОТСЛЕЖИВАНИЕ",
+                        L.text(R.string.start_tracking),
 
                     fontSize =
                         15.sp,
@@ -1275,7 +1294,7 @@ private fun SetupScreen(
 
                 Text(
                     text =
-                        "Введите номер автомобиля и выберите пункт пропуска",
+                        L.text(R.string.setup_hint),
 
                     color =
                         SecondaryTextColor,
@@ -1299,7 +1318,7 @@ private fun SetupScreen(
 
             Text(
                 text =
-                    "●  ГОТОВО К МОНИТОРИНГУ",
+                    L.text(R.string.ready),
 
                 color =
                     if (
@@ -1329,8 +1348,6 @@ private fun SetupScreen(
             )
 
 
-            ForecastAnalyticsControl()
-            Spacer(Modifier.height(14.dp))
             OfficialSourceNotice()
 
 
@@ -1339,103 +1356,6 @@ private fun SetupScreen(
                     Modifier.height(
                         14.dp
                     )
-            )
-        }
-    }
-}
-
-
-@Composable
-private fun OfficialSourceNotice() {
-
-    val context =
-        LocalContext.current
-
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(
-                RoundedCornerShape(
-                    16.dp
-                )
-            )
-            .background(
-                SecondaryPanelColor
-            )
-            .padding(
-                14.dp
-            )
-    ) {
-
-        Column {
-
-            Text(
-                text =
-                    "ИСТОЧНИК ИНФОРМАЦИИ",
-
-                color =
-                    MainTextColor,
-
-                fontSize =
-                    13.sp,
-
-                fontWeight =
-                    FontWeight.Bold
-            )
-
-
-            Spacer(
-                modifier =
-                    Modifier.height(
-                        6.dp
-                    )
-            )
-
-
-            Text(
-                text =
-                    "Официальная система электронной очереди РУП «Белтаможсервис»: belarusborder.by",
-
-                modifier = Modifier.clickable {
-                    context.startActivity(
-                        Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse(
-                                OFFICIAL_SOURCE_URL
-                            )
-                        )
-                    )
-                },
-
-                color =
-                    BlueColor,
-
-                fontSize =
-                    13.sp,
-
-                fontWeight =
-                    FontWeight.SemiBold
-            )
-
-
-            Spacer(
-                modifier =
-                    Modifier.height(
-                        8.dp
-                    )
-            )
-
-
-            Text(
-                text =
-                    "QueueWatch — независимое неофициальное приложение. Оно не представляет РУП «Белтаможсервис», Государственный пограничный комитет или другие государственные органы Республики Беларусь. Данные предоставляются в информационных целях и могут поступать с задержкой. Перед поездкой проверяйте сведения в официальном источнике.",
-
-                color =
-                    SecondaryTextColor,
-
-                fontSize =
-                    12.sp
             )
         }
     }
@@ -1457,7 +1377,8 @@ private fun TrackingScreen(
 
     positionAlertThreshold: Int,
 
-    calledAlertEnabled: Boolean
+    calledAlertEnabled: Boolean,
+    onStopTracking: () -> Unit
 ) {
 
     val context =
@@ -1471,7 +1392,7 @@ private fun TrackingScreen(
 
     var alertTitle by remember {
         mutableStateOf(
-            "Оповещение QueueWatch"
+            L.text(R.string.app_alert)
         )
     }
 
@@ -1583,7 +1504,7 @@ private fun TrackingScreen(
 
     var message by remember {
         mutableStateOf(
-            "Подготовка..."
+            L.text(R.string.preparing)
         )
     }
 
@@ -1595,17 +1516,6 @@ private fun TrackingScreen(
 
     var trackingEvidence by remember { mutableStateOf<TrackingEvidence?>(null) }
 
-    var trackingStartPosition by remember {
-        mutableStateOf<Int?>(null)
-    }
-
-    var trackingStartTime by remember {
-        mutableStateOf<Long?>(null)
-    }
-
-    var movementElapsedMs by remember {
-        mutableStateOf(0L)
-    }
 
 
     LaunchedEffect(Unit) {
@@ -1658,10 +1568,11 @@ private fun TrackingScreen(
             message =
                 preferences.getString(
                     QueueWatchService.KEY_MESSAGE,
-                    "Подготовка..."
-                ) ?: "Подготовка..."
+                    L.text(R.string.preparing)
+                ) ?: L.text(R.string.preparing)
 
 
+            message = L.stored(message)
             lastUpdate =
                 preferences.getString(
                     QueueWatchService.KEY_LAST_UPDATE,
@@ -1670,12 +1581,9 @@ private fun TrackingScreen(
 
 
             val movementSessionId =
-                carNumber.trim().uppercase() + "|" + checkpointName.trim().uppercase()
+                carNumber.trim().uppercase(java.util.Locale.ROOT) + "|" + checkpointName.trim().uppercase(java.util.Locale.ROOT)
             // movement_session_id is now owned by the service evidence store.
             trackingEvidence = TrackingEvidenceStore(SharedPreferencesForecastStorage(preferences)).read(movementSessionId)
-            trackingStartPosition = trackingEvidence?.firstPosition
-            trackingStartTime = trackingEvidence?.firstAt
-            movementElapsedMs = trackingEvidence?.elapsedMillis ?: 0L
             vehicleState = displayedTrackingState(vehicleState, trackingEvidence, System.currentTimeMillis())
             if (vehicleState != "IN_QUEUE") position = null
             if (vehicleState == "SOURCE_ERROR" || vehicleState == "STALE") queueCount = null
@@ -1697,8 +1605,8 @@ private fun TrackingScreen(
             val serviceAlertTitle =
                 preferences.getString(
                     QueueWatchService.KEY_ALERT_TITLE,
-                    "Оповещение QueueWatch"
-                ) ?: "Оповещение QueueWatch"
+                    L.text(R.string.app_alert)
+                ) ?: L.text(R.string.app_alert)
 
 
             if (
@@ -1707,10 +1615,10 @@ private fun TrackingScreen(
             ) {
 
                 alertTitle =
-                    serviceAlertTitle
+                    L.stored(serviceAlertTitle)
 
                 alertMessage =
-                    serviceAlertMessage
+                    L.stored(serviceAlertMessage)
 
                 alertVisible =
                     true
@@ -1787,7 +1695,7 @@ private fun TrackingScreen(
 
                     Text(
                         text =
-                            "ПОДТВЕРДИТЬ"
+                            L.text(R.string.acknowledge)
                     )
                 }
             }
@@ -1818,7 +1726,6 @@ private fun TrackingScreen(
         }
 
 
-    val positionsPassed = trackingEvidence?.positionsPassed
 
     val positionsToCall =
         when {
@@ -1827,34 +1734,24 @@ private fun TrackingScreen(
             else -> null
         }
 
-    val elapsedTotalMinutes = movementElapsedMs / 60_000L
-    val elapsedHours = elapsedTotalMinutes / 60L
-    val elapsedMinutes = elapsedTotalMinutes % 60L
-    val elapsedText =
-        if (elapsedHours > 0L) {
-            "${elapsedHours} ч ${elapsedMinutes} мин"
-        } else {
-            "${elapsedMinutes} мин"
-        }
-
     val statusText =
         when (
             vehicleState
         ) {
 
             "IN_QUEUE" ->
-                "●  ЖИВАЯ ОЧЕРЕДЬ"
+                L.text(R.string.status_in_queue)
 
             "CALLED" ->
-                "●  ВЫЗВАН НА КПП"
+                L.text(R.string.status_called)
 
-            "MISSING" -> "●  НОМЕРА НЕТ В СПИСКЕ"
-            "SOURCE_ERROR" -> "●  НЕТ СВЕЖИХ ДАННЫХ"
-            "STALE" -> "●  ДАННЫЕ УСТАРЕЛИ"
-            "UNKNOWN" -> "●  СОСТОЯНИЕ НЕ ОПРЕДЕЛЕНО"
+            "MISSING" -> L.text(R.string.status_missing)
+            "SOURCE_ERROR" -> L.text(R.string.status_source_error)
+            "STALE" -> L.text(R.string.status_stale)
+            "UNKNOWN" -> L.text(R.string.status_unknown)
 
             else ->
-                "●  ПОИСК АВТОМОБИЛЯ"
+                L.text(R.string.status_searching)
         }
 
 
@@ -1895,35 +1792,10 @@ private fun TrackingScreen(
             ScreenBackground
     ) {
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    horizontal = 20.dp,
-                    vertical = 20.dp
-                ),
-
-            horizontalAlignment =
-                Alignment.CenterHorizontally,
-
-            verticalArrangement =
-                Arrangement.Top
-        ) {
+        TrackingLayout(onStopped = onStopTracking) {
 
 
-            Text(
-                text =
-                    "QueueWatch",
-
-                color =
-                    SecondaryTextColor,
-
-                fontSize =
-                    18.sp,
-
-                fontWeight =
-                    FontWeight.SemiBold
-            )
+            QueueAppHeader()
 
 
             Spacer(
@@ -1965,7 +1837,7 @@ private fun TrackingScreen(
 
                     Text(
                         text =
-                            carNumber.uppercase(),
+                            carNumber.uppercase(java.util.Locale.ROOT),
 
                         color =
                             MainTextColor,
@@ -1991,7 +1863,7 @@ private fun TrackingScreen(
 
                     Text(
                         text =
-                            checkpointName.uppercase(),
+                            L.checkpoint(checkpointName).uppercase(L.locale()),
 
                         color =
                             SecondaryTextColor,
@@ -2048,7 +1920,7 @@ private fun TrackingScreen(
 
                     Text(
                         text =
-                            "ТЕКУЩАЯ ПОЗИЦИЯ",
+                            L.text(R.string.current_position),
 
                         color =
                             SecondaryTextColor,
@@ -2120,12 +1992,15 @@ private fun TrackingScreen(
                ШКАЛА ДО ВЫЗОВА
                ------------------------------------------------ */
 
+            TrackingMovementSummary(trackingEvidence)
+            Spacer(Modifier.height(14.dp))
+
             if (vehicleState != "IN_QUEUE" && trackingEvidence != null) {
                 val last = trackingEvidence!!
-                val lastTime = SimpleDateFormat("d MMM yyyy, HH:mm", Locale("ru")).apply {
+                val lastTime = SimpleDateFormat("d MMM yyyy, HH:mm", L.locale()).apply {
                     timeZone = TimeZone.getTimeZone("Europe/Minsk")
                 }.format(Date(last.lastAt))
-                Text("Последняя подтверждённая позиция: ${last.lastPosition}\n$lastTime по Минску", color = SecondaryTextColor, fontSize = 13.sp)
+                Text(L.text(R.string.last_position, last.lastPosition, lastTime), color = SecondaryTextColor, fontSize = 13.sp)
                 Spacer(Modifier.height(14.dp))
             }
 
@@ -2162,7 +2037,7 @@ private fun TrackingScreen(
 
                             Text(
                                 text =
-                                    "До вызова",
+                                    L.text(R.string.until_call),
 
                                 color =
                                     SecondaryTextColor,
@@ -2174,7 +2049,7 @@ private fun TrackingScreen(
 
                             Text(
                                 text =
-                                    if (vehicleState == "CALLED") "ВЫЗВАН" else "ПОЗИЦИЯ 1",
+                                    if (vehicleState == "CALLED") L.text(R.string.called) else L.text(R.string.first_position),
 
                                 color =
                                     MainTextColor,
@@ -2252,7 +2127,7 @@ private fun TrackingScreen(
 
                             Text(
                                 text =
-                                    "НАЧАЛО ОЧЕРЕДИ",
+                                    L.text(R.string.queue_start),
 
                                 color =
                                     SecondaryTextColor,
@@ -2268,18 +2143,18 @@ private fun TrackingScreen(
                                         vehicleState == "CALLED"
                                     ) {
 
-                                        "ВЫЗВАН"
+                                        L.text(R.string.called)
 
                                     } else if (
                                         position != null &&
                                         position!! <= 5
                                     ) {
 
-                                        "СКОРО ВЫЗОВ"
+                                        L.text(R.string.call_soon)
 
                                     } else {
 
-                                        "БЛИЖЕ К ВЫЗОВУ"
+                                        L.text(R.string.closer_to_call)
                                     },
 
                                 color =
@@ -2307,17 +2182,7 @@ private fun TrackingScreen(
                             modifier = Modifier.height(12.dp)
                         )
 
-                        Text(
-                            text =
-                                if (positionsPassed != null) {
-                                    "За $elapsedText пройдено: $positionsPassed позиций"
-                                } else {
-                                    "За — пройдено: — позиций"
-                                },
-                            color = MainTextColor,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+
 
                         Spacer(
                             modifier = Modifier.height(4.dp)
@@ -2325,7 +2190,7 @@ private fun TrackingScreen(
 
                         Text(
                             text =
-                                "До вызова осталось: ${positionsToCall?.toString() ?: "—"} позиций",
+                                L.text(R.string.remaining_positions, positionsToCall?.toString() ?: "—"),
                             color =
                                 if (vehicleState == "CALLED") GreenColor else SecondaryTextColor,
                             fontSize = 13.sp,
@@ -2382,7 +2247,7 @@ private fun TrackingScreen(
 
                         Text(
                             text =
-                                "МАШИН В ОЧЕРЕДИ",
+                                L.text(R.string.queue_count),
 
                             color =
                                 SecondaryTextColor,
@@ -2431,7 +2296,7 @@ private fun TrackingScreen(
 
                         Text(
                             text =
-                                "ПРОВЕРКА ИСТОЧНИКА (МИНСК)",
+                                L.text(R.string.source_check_time),
 
                             color =
                                 SecondaryTextColor,
@@ -2471,7 +2336,7 @@ private fun TrackingScreen(
                 "CALLED" &&
                 message.isNotBlank() &&
                 message !=
-                "Подготовка..."
+                L.text(R.string.preparing)
             ) {
 
                 Spacer(
@@ -2484,7 +2349,7 @@ private fun TrackingScreen(
 
                 Text(
                     text =
-                        if (vehicleState == "STALE") "Свежая позиция не подтверждена. Повторяем запрос к источнику." else message,
+                        if (vehicleState == "STALE") L.text(R.string.freshness_hint) else message,
 
                     color =
                         SecondaryTextColor,
@@ -2506,29 +2371,7 @@ private fun TrackingScreen(
             )
 
 
-            Text(
-                text =
-                    "●  ОТСЛЕЖИВАНИЕ АКТИВНО",
-
-                color =
-                    if (
-                        vehicleState ==
-                        "UNKNOWN"
-                    ) {
-
-                        YellowColor
-
-                    } else {
-
-                        GreenColor
-                    },
-
-                fontSize =
-                    12.sp,
-
-                fontWeight =
-                    FontWeight.SemiBold
-            )
+            TrackingHealthStatus()
 
 
             Spacer(
@@ -2539,8 +2382,6 @@ private fun TrackingScreen(
             )
 
 
-            ForecastAnalyticsControl()
-            Spacer(Modifier.height(14.dp))
             OfficialSourceNotice()
 
 

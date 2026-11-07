@@ -6,16 +6,21 @@ import java.time.Instant
 import java.time.ZoneId
 
 internal fun analyticsConsent(context: Context): AnalyticsConsent {
-    val app = context.applicationContext
-    val consent = app.getSharedPreferences(AnalyticsConsent.PREFERENCES, Context.MODE_PRIVATE)
-    val data = app.getSharedPreferences(AnalyticsConsent.DATA_PREFERENCES, Context.MODE_PRIVATE)
-    return AnalyticsConsent(SharedPreferencesForecastStorage(consent), clearPending = {
-        // Keep the random code solely so the user can identify past records for a deletion request.
-        val installId = data.getString("forecast_install_id", null)
-        data.edit().clear().apply {
-            if (installId != null) putString("forecast_install_id", installId)
-        }.commit()
-    })
+    synchronized(AnalyticsConsent.LOCK) {
+        val app = context.applicationContext
+        val settingsFile = java.io.File(app.applicationInfo.dataDir,
+            "shared_prefs/${AnalyticsConsent.PREFERENCES}.xml")
+        val legacySettingsExist = settingsFile.exists() || java.io.File(settingsFile.path + ".bak").exists()
+        val consent = app.getSharedPreferences(AnalyticsConsent.PREFERENCES, Context.MODE_PRIVATE)
+        val data = app.getSharedPreferences(AnalyticsConsent.DATA_PREFERENCES, Context.MODE_PRIVATE)
+        return AnalyticsConsent(SharedPreferencesForecastStorage(consent), clearPending = {
+            // Keep the random code solely so the user can identify past records for a deletion request.
+            val installId = data.getString("forecast_install_id", null)
+            data.edit().clear().apply {
+                if (installId != null) putString("forecast_install_id", installId)
+            }.commit()
+        }).also { it.initializeDefaults(legacySettingsExist) }
+    }
 }
 
 /** Optional analytics never controls tracking, position notifications or checkpoint-call alerts. */

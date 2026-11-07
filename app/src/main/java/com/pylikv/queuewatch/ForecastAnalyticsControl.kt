@@ -26,12 +26,12 @@ internal fun ForecastAnalyticsControl() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences(AnalyticsConsent.PREFERENCES, Context.MODE_PRIVATE) }
     val consent = remember { analyticsConsent(context) }
-    var enabled by remember { mutableStateOf(consent.currentGrant() != null) }
+    var enabled by remember { mutableStateOf(consent.isEnabled()) }
     var confirm by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf(false) }
     DisposableEffect(prefs) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-            enabled = consent.currentGrant() != null
+            enabled = consent.isEnabled()
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -42,47 +42,38 @@ internal fun ForecastAnalyticsControl() {
     }
     Column(Modifier.fillMaxWidth().background(Color(0xFF1B232C), RoundedCornerShape(16.dp)).padding(14.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            Text("Помогать улучшать QueueWatch", Modifier.weight(1f), color = Color(0xFFF1F5F9), fontSize = 14.sp)
-            Switch(modifier = Modifier.semantics { contentDescription = "Помогать улучшать QueueWatch" },
+            Text(L.text(R.string.analytics_help), Modifier.weight(1f), color = Color(0xFFF1F5F9), fontSize = 14.sp)
+            Switch(modifier = Modifier.semantics { contentDescription = L.text(R.string.analytics_help) },
                 checked = enabled, onCheckedChange = { requested ->
                 if (requested) confirm = true else { consent.disable(); enabled = false }
             })
         }
-        Text("Добровольная отправка статистики ожидания для проверки точности будущего прогноза. " +
-            "Отказ не влияет на отслеживание и уведомления.", color = Color(0xFF9AA6B2), fontSize = 12.sp)
+        Text(L.text(R.string.analytics_summary), color = Color(0xFF9AA6B2), fontSize = 12.sp)
         Row {
-            TextButton(onClick = { policy() }) { Text("Конфиденциальность") }
-            TextButton(onClick = { info = true }) { Text("Данные и удаление") }
+            TextButton(onClick = { policy() }) { Text(L.text(R.string.privacy)) }
+            TextButton(onClick = { info = true }) { Text(L.text(R.string.data_deletion)) }
         }
     }
     if (confirm) AlertDialog(
         onDismissRequest = { confirm = false },
-        title = { Text("Статистика для улучшения прогноза") },
+        title = { Text(L.text(R.string.analytics_title)) },
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                Text("Если вы разрешите, QueueWatch будет отправлять на сервер аналитики выбранный КПП, " +
-                    "тип транспорта, позиции и время наблюдений, расчёты времени ожидания, момент вызова, " +
-                    "случайные коды установки и сеанса. Эти данные нужны для сравнения точности двух способов расчёта.\n\n" +
-                    "Отправка происходит во время включённого отслеживания, в том числе когда экран приложения закрыт. " +
-                    "Номер автомобиля, контакты и GPS-координаты в статистику не отправляются.\n\n" +
-                    "Участие добровольное. Отправку можно отключить в любой момент; отслеживание и уведомления продолжат работать. " +
-                    "Отключение не удаляет ранее отправленные записи с сервера.")
-                TextButton(onClick = { policy() }) { Text("Политика конфиденциальности") }
+                Text(L.text(R.string.analytics_consent_body))
+                TextButton(onClick = { policy() }) { Text(L.text(R.string.privacy_policy)) }
             }
         },
         confirmButton = { TextButton(onClick = { consent.enable(); enabled = true; confirm = false }) {
-            Text("Разрешить отправку")
+            Text(L.text(R.string.allow_sending))
         } },
-        dismissButton = { TextButton(onClick = { confirm = false }) { Text("Не отправлять") } }
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text(L.text(R.string.do_not_send)) } }
     )
     if (info) {
         val code = context.getSharedPreferences(AnalyticsConsent.DATA_PREFERENCES, Context.MODE_PRIVATE)
             .getString("forecast_install_id", null)
-        AlertDialog(onDismissRequest = { info = false }, title = { Text("Данные и удаление") },
-            text = { SelectionContainer { Text("Код статистики: ${code ?: "ещё не создан"}\n\n" +
-                "Для запроса удаления ранее отправленных записей напишите на vasilipylik@gmail.com " +
-                "и укажите этот код. Номер автомобиля для поиска статистики не нужен. " +
-                "Отключение переключателя прекращает новые расчёты и отправку статистики и очищает ожидающие отправки события на телефоне.") } },
-            confirmButton = { TextButton(onClick = { info = false }) { Text("Закрыть") } })
+        AlertDialog(onDismissRequest = { info = false }, title = { Text(L.text(R.string.data_deletion)) },
+            text = { SelectionContainer { Text(L.text(R.string.analytics_code,
+                code ?: L.text(R.string.not_created)) + "\n\n" + L.text(R.string.analytics_deletion_body)) } },
+            confirmButton = { TextButton(onClick = { info = false }) { Text(L.text(R.string.close)) } })
     }
 }

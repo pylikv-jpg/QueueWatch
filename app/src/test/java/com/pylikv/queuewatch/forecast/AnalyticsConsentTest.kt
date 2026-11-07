@@ -11,6 +11,55 @@ class AnalyticsConsentTest {
         override fun remove(keys: Set<String>) { keys.forEach(values::remove) }
     }
 
+    @Test fun freshInstallPreselectsParticipationButWaitsForWelcomeChoice() {
+        val prefs = Memory(); val consent = AnalyticsConsent(prefs, {})
+        consent.initializeDefaults(legacySettingsExist = false)
+        assertTrue(consent.isEnabled())
+        assertTrue(consent.welcomePending())
+        assertNull(consent.currentGrant())
+        consent.enable()
+        assertFalse(consent.welcomePending())
+        assertNotNull(consent.currentGrant())
+    }
+
+    @Test fun oldEmptySettingsAndNewExplicitRefusalStayOffAfterUpdates() {
+        val prefs = Memory(); val consent = AnalyticsConsent(prefs, {})
+        consent.initializeDefaults(legacySettingsExist = true)
+        assertFalse(consent.isEnabled())
+        assertFalse(consent.welcomePending())
+        consent.initializeDefaults(legacySettingsExist = false)
+        assertNull(consent.currentGrant())
+        consent.enable()
+        consent.disable()
+        consent.initializeDefaults(legacySettingsExist = false)
+        assertFalse(consent.isEnabled())
+    }
+
+    @Test fun migrationPreservesAnExistingGrantAndDoesNotReplaceCorruptSettings() {
+        val prefs = Memory(); val consent = AnalyticsConsent(prefs, {})
+        consent.enable()
+        val grant = consent.currentGrant()
+        consent.initializeDefaults(legacySettingsExist = true)
+        assertEquals(grant, consent.currentGrant())
+        val key = prefs.values.keys.single()
+        prefs.values[key] = "corrupt"
+        consent.initializeDefaults(legacySettingsExist = false)
+        assertNull(consent.currentGrant())
+        assertFalse(consent.welcomePending())
+    }
+
+    @Test fun unreadableLegacyPreferencesRemainDisabledWithoutCrashingMigration() {
+        val corrupt = object : ForecastStorage {
+            override fun read(key: String): String? = throw ClassCastException("wrong preference type")
+            override fun write(key: String, value: String) { fail("Must not replace unreadable settings") }
+            override fun remove(keys: Set<String>) { fail("Must not remove unreadable settings") }
+        }
+        val consent = AnalyticsConsent(corrupt, {})
+        consent.initializeDefaults(legacySettingsExist = true)
+        assertFalse(consent.isEnabled())
+        assertNull(consent.currentGrant())
+    }
+
     @Test fun consentIsOffByDefaultAndUnknownOrCorruptVersionsFailClosed() {
         val prefs = Memory(); val consent = AnalyticsConsent(prefs, {})
         assertNull(consent.currentGrant())

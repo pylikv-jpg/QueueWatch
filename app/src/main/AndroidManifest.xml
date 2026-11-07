@@ -2,6 +2,12 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <queries>
+        <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
+    </queries>
+
     <!-- Интернет для API электронной очереди -->
     <uses-permission
         android:name="android.permission.INTERNET" />
@@ -33,12 +39,14 @@
 
 
     <application
+        android:name=".QueueWatchApplication"
+        android:localeConfig="@xml/locale_config"
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@drawable/queuewatch_icon"
         android:roundIcon="@drawable/queuewatch_icon"
-        android:label="QueueWatch"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
