@@ -122,6 +122,7 @@ private fun RestoredTrackingScreen() {
     var state by remember { mutableStateOf("") }
     var message by remember { mutableStateOf(L.text(R.string.restoring)) }
     var lastUpdate by remember { mutableStateOf("") }
+    var trackingEvidence by remember { mutableStateOf<TrackingEvidence?>(null) }
     var alertVisible by remember { mutableStateOf(false) }
     var alertTitle by remember { mutableStateOf(L.text(R.string.app_alert)) }
     var alertMessage by remember { mutableStateOf("") }
@@ -147,6 +148,7 @@ private fun RestoredTrackingScreen() {
             state = prefs.getString(QueueWatchService.KEY_STATE, "").orEmpty()
             val evidence = TrackingEvidenceStore(com.pylikv.queuewatch.forecast.SharedPreferencesForecastStorage(prefs))
                 .read(carNumber.trim().uppercase(java.util.Locale.ROOT) + "|" + checkpoint.trim().uppercase(java.util.Locale.ROOT))
+            trackingEvidence = evidence
             state = displayedTrackingState(state, evidence, System.currentTimeMillis())
             if (state != "IN_QUEUE") position = null
             if (state in setOf("SOURCE_ERROR", "STALE")) queueCount = null
@@ -298,6 +300,9 @@ private fun RestoredTrackingScreen() {
                     }
                 }
 
+                Spacer(Modifier.height(14.dp))
+
+                TrackingMovementSummary(trackingEvidence)
                 Spacer(Modifier.height(14.dp))
 
                 Box(

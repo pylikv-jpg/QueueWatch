@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun TrackingLayout(onStopped: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val context = LocalContext.current
-    Column(Modifier.fillMaxSize().navigationBarsPadding()) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 20.dp),

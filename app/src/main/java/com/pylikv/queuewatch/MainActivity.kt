@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -364,6 +365,7 @@ private fun SetupScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
                 .verticalScroll(
                     scrollState
                 )
@@ -1514,17 +1516,6 @@ private fun TrackingScreen(
 
     var trackingEvidence by remember { mutableStateOf<TrackingEvidence?>(null) }
 
-    var trackingStartPosition by remember {
-        mutableStateOf<Int?>(null)
-    }
-
-    var trackingStartTime by remember {
-        mutableStateOf<Long?>(null)
-    }
-
-    var movementElapsedMs by remember {
-        mutableStateOf(0L)
-    }
 
 
     LaunchedEffect(Unit) {
@@ -1593,9 +1584,6 @@ private fun TrackingScreen(
                 carNumber.trim().uppercase(java.util.Locale.ROOT) + "|" + checkpointName.trim().uppercase(java.util.Locale.ROOT)
             // movement_session_id is now owned by the service evidence store.
             trackingEvidence = TrackingEvidenceStore(SharedPreferencesForecastStorage(preferences)).read(movementSessionId)
-            trackingStartPosition = trackingEvidence?.firstPosition
-            trackingStartTime = trackingEvidence?.firstAt
-            movementElapsedMs = trackingEvidence?.elapsedMillis ?: 0L
             vehicleState = displayedTrackingState(vehicleState, trackingEvidence, System.currentTimeMillis())
             if (vehicleState != "IN_QUEUE") position = null
             if (vehicleState == "SOURCE_ERROR" || vehicleState == "STALE") queueCount = null
@@ -1738,23 +1726,12 @@ private fun TrackingScreen(
         }
 
 
-    val positionsPassed = trackingEvidence?.positionsPassed
 
     val positionsToCall =
         when {
             vehicleState == "CALLED" -> 0
             position != null && position!! > 0 -> position
             else -> null
-        }
-
-    val elapsedTotalMinutes = movementElapsedMs / 60_000L
-    val elapsedHours = elapsedTotalMinutes / 60L
-    val elapsedMinutes = elapsedTotalMinutes % 60L
-    val elapsedText =
-        if (elapsedHours > 0L) {
-            L.text(R.string.duration_hours, elapsedHours, elapsedMinutes)
-        } else {
-            L.text(R.string.duration_minutes, elapsedMinutes)
         }
 
     val statusText =
@@ -2015,6 +1992,9 @@ private fun TrackingScreen(
                ШКАЛА ДО ВЫЗОВА
                ------------------------------------------------ */
 
+            TrackingMovementSummary(trackingEvidence)
+            Spacer(Modifier.height(14.dp))
+
             if (vehicleState != "IN_QUEUE" && trackingEvidence != null) {
                 val last = trackingEvidence!!
                 val lastTime = SimpleDateFormat("d MMM yyyy, HH:mm", L.locale()).apply {
@@ -2202,17 +2182,7 @@ private fun TrackingScreen(
                             modifier = Modifier.height(12.dp)
                         )
 
-                        Text(
-                            text =
-                                if (positionsPassed != null) {
-                                    L.text(R.string.movement, elapsedText, positionsPassed!!)
-                                } else {
-                                    L.text(R.string.movement_unavailable)
-                                },
-                            color = MainTextColor,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+
 
                         Spacer(
                             modifier = Modifier.height(4.dp)

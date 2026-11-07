@@ -13,11 +13,14 @@ required_main = [
     "detectHorizontalDragGestures(",
     "val callProgress =",
     "TrackingEvidenceStore(",
-    "val positionsPassed =",
+    "TrackingMovementSummary(",
 ]
 
 missing = [marker for marker in required_service if marker not in service]
 missing += [marker for marker in required_main if marker not in main]
+restored = Path("app/src/main/java/com/pylikv/queuewatch/SessionLauncherActivity.kt").read_text(encoding="utf-8")
+if "TrackingMovementSummary(" not in restored:
+    missing.append("TrackingMovementSummary on restored screen")
 
 if missing:
     raise SystemExit(
